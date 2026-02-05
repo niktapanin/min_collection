@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Каталог минералов</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .card:hover { transform: translateY(-1px); }
+    .mono { font-variant-numeric: tabular-nums; }
+    .crys svg { display:block; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <header class="sticky top-0 z-20 backdrop-blur bg-white/70 border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-3">
+        <h1 class="text-xl sm:text-2xl font-semibold">Каталог коллекции минералов</h1>
+        <div class="text-xs text-slate-500">Локально · data.json</div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        <div class="lg:col-span-4">
+          <label class="text-xs text-slate-600">Поиск (название / IMA / формула / месторождение)</label>
+          <input id="q" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                 placeholder="Напр.: quartz, Урал, SiO2, Au…" />
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="text-xs text-slate-600">Класс</label>
+          <select id="fClass" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="text-xs text-slate-600">Страна</label>
+          <select id="fCountry" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="text-xs text-slate-600">Месторождение</label>
+          <select id="fLocality" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="text-xs text-slate-600">Элемент в формуле</label>
+          <select id="fEl" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm text-slate-600">
+          <span id="countLabel" class="mono"></span>
+          <span class="mx-2 text-slate-300">•</span>
+          <button id="reset" class="text-slate-700 hover:underline">Сбросить фильтры</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-slate-600">Сортировка</label>
+          <select id="sort" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+            <option value="name">Название (А→Я)</option>
+            <option value="cost_desc">Стоимость (убыв.)</option>
+            <option value="cost_asc">Стоимость (возр.)</option>
+            <option value="country">Страна (А→Я)</option>
+            <option value="class">Класс (А→Я)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+        <div class="text-xs text-slate-500">Саммари (по текущей выборке)</div>
+        <div class="mt-2 grid grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs text-slate-500">Образцов</div>
+            <div id="sCount" class="text-lg font-semibold mono">—</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Стран</div>
+            <div id="sCountries" class="text-lg font-semibold mono">—</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Месторождений</div>
+            <div id="sLocalities" class="text-lg font-semibold mono">—</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Сумм. стоимость</div>
+            <div id="sTotalCost" class="text-lg font-semibold mono">—</div>
+          </div>
+        </div>
+        <div class="mt-3 text-xs text-slate-500">* Стоимость считается по заполненным значениям.</div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm lg:col-span-2">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-xs text-slate-500">Распределение по классам (топ-12)</div>
+            <div class="text-sm text-slate-600">Можно быстро кликнуть по классу</div>
+          </div>
+          <button id="showAllClasses" class="text-sm text-slate-700 hover:underline">Показать все</button>
+        </div>
+        <div id="classBars" class="mt-3 space-y-2"></div>
+      </div>
+    </section>
+
+    <section>
+      <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      <div class="flex items-center justify-center mt-6">
+        <button id="more" class="hidden px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-sm">
+          Показать ещё
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/40 p-4 z-50">
+    <div class="bg-white w-full max-w-2xl rounded-2xl border border-slate-200 shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <div class="font-semibold">Классы в коллекции</div>
+        <button id="closeModal" class="px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">Закрыть</button>
+      </div>
+      <div id="modalBody" class="p-4 max-h-[70vh] overflow-auto"></div>
+    </div>
+  </div>
+
+<script>
+const state = { data: [], filtered: [], page: 0, pageSize: 60 };
+const el = (id) => document.getElementById(id);
+const fmtInt = (n) => (n ?? 0).toLocaleString('ru-RU');
+const fmtMoney = (n) => (n == null || Number.isNaN(n)) ? '—' : n.toLocaleString('ru-RU', {maximumFractionDigits: 0});
+const norm = (s) => (s || '').toString().toLowerCase().trim();
+
+function mindatUrl(item) {
+  const q = encodeURIComponent(item.ima_name || item.name_ru || '');
+  return `https://www.mindat.org/search.php?search=${q}`;
+}
+function uniqSorted(arr) { return [...new Set(arr.filter(x => x != null && x !== ''))].sort((a,b) => a.localeCompare(b, 'ru')); }
+function makeOption(value, label) { const o=document.createElement('option'); o.value=value; o.textContent=label; return o; }
+function fillSelect(selectEl, values, placeholder) { selectEl.innerHTML=''; selectEl.appendChild(makeOption('', placeholder)); values.forEach(v => selectEl.appendChild(makeOption(v,v))); }
+
+// --- crystal system icon (simple wireframe mini-cells) ---
+function crystalKey(s) {
+  const t = norm(s);
+  if (!t) return '';
+  if (t.includes('куб')) return 'cubic';
+  if (t.includes('тетра')) return 'tetragonal';
+  if (t.includes('ромб') || t.includes('ортор')) return 'orthorhombic';
+  if (t.includes('гекса')) return 'hexagonal';
+  if (t.includes('триго') || t.includes('ромбоэд') || t.includes('р-тр')) return 'trigonal';
+  if (t.includes('монок')) return 'monoclinic';
+  if (t.includes('трикл')) return 'triclinic';
+  return 'other';
+}
+function crystalIcon(key) {
+  const base = `width="28" height="28" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"`;
+  const wrap = (paths) => `<svg ${base}>${paths}</svg>`;
+
+  // Coordinates chosen for a clean tiny wireframe look.
+  const cube = wrap(`
+    <path d="M18 20 L36 12 L52 20 L34 28 Z" opacity="0"/>
+    <path d="M18 22 L34 30 L34 52 L18 44 Z"/>
+    <path d="M34 30 L52 22 L52 44 L34 52 Z"/>
+    <path d="M18 22 L36 14 L52 22 L34 30 Z"/>
+    <path d="M36 14 L36 36"/>
+  `);
+
+  const tetr = wrap(`
+    <path d="M18 24 L34 16 L50 24 L34 32 Z"/>
+    <path d="M18 24 L34 32 L34 54 L18 46 Z"/>
+    <path d="M34 32 L50 24 L50 46 L34 54 Z"/>
+    <path d="M18 46 L34 54 L50 46"/>
+  `);
+
+  const ortho = wrap(`
+    <path d="M14 24 L34 14 L54 24 L34 34 Z"/>
+    <path d="M14 24 L34 34 L34 56 L14 46 Z"/>
+    <path d="M34 34 L54 24 L54 46 L34 56 Z"/>
+    <path d="M14 46 L34 56 L54 46"/>
+  `);
+
+  const hex = wrap(`
+    <path d="M22 16 L32 12 L42 16 L42 28 L32 32 L22 28 Z"/>
+    <path d="M22 28 L22 50"/>
+    <path d="M42 28 L42 50"/>
+    <path d="M32 32 L32 54"/>
+    <path d="M22 50 L32 54 L42 50"/>
+    <path d="M22 16 L22 28"/>
+    <path d="M42 16 L42 28"/>
+  `);
+
+  const trig = wrap(`
+    <path d="M22 18 L44 14 L48 32 L26 36 Z"/>
+    <path d="M22 18 L26 36 L22 54 L18 36 Z" opacity="0"/>
+    <path d="M22 18 L26 36 L22 54 L18 36 Z"/>
+    <path d="M44 14 L48 32 L44 50 L40 32 Z"/>
+    <path d="M26 36 L48 32"/>
+    <path d="M22 54 L44 50"/>
+  `);
+
+  const mono = wrap(`
+    <path d="M18 22 L36 14 L52 22 L34 30 Z"/>
+    <path d="M18 22 L34 30 L30 52 L14 44 Z"/>
+    <path d="M34 30 L52 22 L48 44 L30 52 Z"/>
+    <path d="M14 44 L30 52 L48 44"/>
+  `);
+
+  const tri = wrap(`
+    <path d="M18 20 L38 12 L54 22 L34 30 Z"/>
+    <path d="M18 20 L34 30 L28 52 L12 44 Z"/>
+    <path d="M34 30 L54 22 L46 46 L28 52 Z"/>
+    <path d="M12 44 L28 52 L46 46"/>
+  `);
+
+  const map = { cubic:cube, tetragonal:tetr, orthorhombic:ortho, hexagonal:hex, trigonal:trig, monoclinic:mono, triclinic:tri };
+  return map[key] || '';
+}
+
+function computeSummary(list) {
+  const countries=new Set(), localities=new Set();
+  let totalCost=0, costCount=0;
+  list.forEach(x => {
+    if (x.country) countries.add(x.country);
+    if (x.locality) localities.add(x.locality);
+    if (x.cost != null && !Number.isNaN(x.cost)) { totalCost += x.cost; costCount++; }
+  });
+  return { count:list.length, countries:countries.size, localities:localities.size, totalCost, avgCost: costCount ? totalCost/costCount : null };
+}
+function updateSummary(list) {
+  const s=computeSummary(list);
+  el('sCount').textContent=fmtInt(s.count);
+  el('sCountries').textContent=fmtInt(s.countries);
+  el('sLocalities').textContent=fmtInt(s.localities);
+  el('sTotalCost').textContent=fmtMoney(s.totalCost);
+  el('countLabel').textContent = `Показано: ${fmtInt(list.length)} из ${fmtInt(state.data.length)}`;
+}
+
+function groupByClass(list) {
+  const m=new Map();
+  list.forEach(x => { const k=x.class || '—'; m.set(k,(m.get(k)||0)+1); });
+  return [...m.entries()].filter(([k])=>k!=='—').sort((a,b)=>b[1]-a[1]);
+}
+function renderClassBars(list) {
+  const bars=el('classBars'); bars.innerHTML='';
+  const grouped=groupByClass(list);
+  const top=grouped.slice(0,12);
+  const max=top.length ? top[0][1] : 1;
+  top.forEach(([cls,cnt])=>{
+    const row=document.createElement('button');
+    row.className='w-full text-left p-2 rounded-xl hover:bg-slate-50 border border-slate-200';
+    row.onclick=()=>{ el('fClass').value=cls; applyFilters(); window.scrollTo({top:0, behavior:'smooth'}); };
+    row.innerHTML = `
+      <div class="flex items-center justify-between gap-3">
+        <div class="text-sm font-medium">${cls}</div>
+        <div class="text-xs text-slate-500 mono">${fmtInt(cnt)}</div>
+      </div>
+      <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div class="h-2 bg-slate-700/60 rounded-full" style="width:${Math.max(6, Math.round((cnt/max)*100))}%"></div>
+      </div>`;
+    bars.appendChild(row);
+  });
+}
+
+function openAllClassesModal(list) {
+  const grouped=groupByClass(list);
+  const body=el('modalBody'); body.innerHTML='';
+  const grid=document.createElement('div');
+  grid.className='grid grid-cols-1 sm:grid-cols-2 gap-2';
+  grouped.forEach(([cls,cnt])=>{
+    const b=document.createElement('button');
+    b.className='p-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-left';
+    b.innerHTML=`<div class="font-medium">${cls}</div><div class="text-xs text-slate-500 mono">${fmtInt(cnt)} образцов</div>`;
+    b.onclick=()=>{ el('fClass').value=cls; closeModal(); applyFilters(); window.scrollTo({top:0, behavior:'smooth'}); };
+    grid.appendChild(b);
+  });
+  body.appendChild(grid);
+  el('modal').classList.remove('hidden'); el('modal').classList.add('flex');
+}
+function closeModal(){ el('modal').classList.add('hidden'); el('modal').classList.remove('flex'); }
+
+function applyFilters() {
+  const q=norm(el('q').value);
+  const fClass=el('fClass').value;
+  const fCountry=el('fCountry').value;
+  const fLocality=el('fLocality').value;
+  const fEl=el('fEl').value;
+  const sort=el('sort').value;
+
+  let out = state.data.filter(x=>{
+    if (fClass && x.class !== fClass) return false;
+    if (fCountry && x.country !== fCountry) return false;
+    if (fLocality && x.locality !== fLocality) return false;
+    if (fEl && !(x.elements || []).includes(fEl)) return false;
+
+    if (!q) return true;
+    const blob=[x.id, x.name_ru, x.name_other, x.ima_name, x.abbr, x.class, x.formula_text, x.locality, x.country].map(norm).join(' | ');
+    return blob.includes(q);
+  });
+
+  const byStr=(k)=>(a,b)=>(a[k]||'').localeCompare(b[k]||'', 'ru');
+  const byNum=(k,dir)=>(a,b)=>((a[k]==null? -Infinity:a[k]) - (b[k]==null? -Infinity:b[k])) * dir;
+
+  if (sort==='name') out.sort(byStr('name_ru'));
+  if (sort==='country') out.sort(byStr('country'));
+  if (sort==='class') out.sort(byStr('class'));
+  if (sort==='cost_desc') out.sort(byNum('cost', -1));
+  if (sort==='cost_asc') out.sort(byNum('cost', 1));
+
+  state.filtered=out;
+  state.page=0;
+  updateSummary(out);
+  renderClassBars(out);
+  renderCards(true);
+}
+
+function cardHtml(x) {
+  const title=x.name_ru || x.ima_name || '—';
+  const subtitle=(x.ima_name && x.ima_name !== title) ? x.ima_name : '';
+  const formula = x.formula_html ? x.formula_html : (x.formula_text || '');
+  const cost=(x.cost != null && !Number.isNaN(x.cost)) ? fmtMoney(x.cost) : '—';
+  const ck = crystalKey(x.syngony || '');
+  const icon = ck ? crystalIcon(ck) : '';
+
+  return `
+  <div class="card bg-white rounded-2xl border border-slate-200 shadow-sm p-4 transition">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="text-lg font-semibold leading-tight">${title}</div>
+        ${subtitle ? `<div class="text-sm text-slate-600">${subtitle}</div>` : ``}
+      </div>
+      <div class="text-xs text-slate-500 mono">${x.id || ''}</div>
+    </div>
+
+    <div class="mt-3 space-y-2 text-sm">
+      ${x.name_other ? `<div class="text-slate-700">${x.name_other}</div>` : ``}
+      ${x.class ? `<div><span class="text-slate-500">Класс:</span> ${x.class}</div>` : ``}
+      ${x.country ? `<div><span class="text-slate-500">Страна:</span> ${x.country}</div>` : ``}
+      ${x.locality ? `<div><span class="text-slate-500">Месторождение:</span> ${x.locality}</div>` : ``}
+      ${formula ? `<div><span class="text-slate-500">Формула:</span> <span class="mono">${formula}</span></div>` : ``}
+      ${x.syngony ? `<div class="flex items-center gap-2"><span class="text-slate-500">Сингония:</span><span class="crys text-slate-600">${icon}</span><span>${x.syngony}</span></div>` : ``}
+      ${x.discovery_year ? `<div><span class="text-slate-500">Год открытия:</span> <span class="mono">${x.discovery_year}</span></div>` : ``}
+    </div>
+
+    <div class="mt-4 flex items-center justify-between gap-2">
+      <div class="text-sm">
+        <span class="text-slate-500">Стоимость:</span>
+        <span class="font-semibold mono">${cost}</span>
+      </div>
+      <a class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm"
+         href="${mindatUrl(x)}" target="_blank" rel="noreferrer">Почитать на Mindat</a>
+    </div>
+
+    ${(x.elements && x.elements.length) ? `
+      <div class="mt-3 flex flex-wrap gap-1">
+        ${x.elements.slice(0, 10).map(e => `<button class="px-2 py-1 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 mono" data-el="${e}">${e}</button>`).join('')}
+        ${x.elements.length > 10 ? `<span class="text-xs text-slate-500">+${x.elements.length-10}</span>` : ``}
+      </div>
+    ` : ``}
+  </div>`;
+}
+
+function renderCards(reset=false) {
+  const cards=el('cards');
+  if (reset) cards.innerHTML='';
+  const start=state.page*state.pageSize;
+  const end=Math.min(state.filtered.length, start + state.pageSize);
+  const slice=state.filtered.slice(start, end);
+
+  slice.forEach(x=>{
+    const wrapper=document.createElement('div');
+    wrapper.innerHTML=cardHtml(x);
+    const card=wrapper.firstElementChild;
+    card.querySelectorAll('button[data-el]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        el('fEl').value = btn.getAttribute('data-el');
+        applyFilters();
+        window.scrollTo({top:0, behavior:'smooth'});
+      });
+    });
+    cards.appendChild(card);
+  });
+
+  el('more').classList.toggle('hidden', end >= state.filtered.length);
+  state.page += 1;
+}
+
+async function init() {
+  const dataRes = await fetch('./data.json');
+  state.data = await dataRes.json();
+
+  fillSelect(el('fClass'), uniqSorted(state.data.map(x=>x.class)), 'Все');
+  fillSelect(el('fCountry'), uniqSorted(state.data.map(x=>x.country)), 'Все');
+  fillSelect(el('fLocality'), uniqSorted(state.data.map(x=>x.locality)), 'Все');
+  const allEls = uniqSorted(state.data.flatMap(x=>x.elements || []));
+  fillSelect(el('fEl'), allEls, 'Любой');
+
+  ['q','fClass','fCountry','fLocality','fEl','sort'].forEach(id=>{
+    el(id).addEventListener(id==='q' ? 'input' : 'change', ()=>applyFilters());
+  });
+  el('more').addEventListener('click', ()=>renderCards(false));
+  el('reset').addEventListener('click', ()=>{
+    el('q').value=''; el('fClass').value=''; el('fCountry').value=''; el('fLocality').value=''; el('fEl').value='';
+    el('sort').value='name';
+    applyFilters();
+  });
+  el('showAllClasses').addEventListener('click', ()=>openAllClassesModal(state.filtered));
+  el('closeModal').addEventListener('click', closeModal);
+  el('modal').addEventListener('click', (e)=>{ if (e.target === el('modal')) closeModal(); });
+
+  state.filtered = state.data.slice();
+  applyFilters();
+}
+init();
+</script>
+</body>
+</html>
