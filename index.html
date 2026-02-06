@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Каталог минералов</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .card:hover { transform: translateY(-1px); }
+    .mono { font-variant-numeric: tabular-nums; }
+    .sheet-closed { transform: translateY(110%); }
+    .sheet-open { transform: translateY(0%); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <header class="sticky top-0 z-30 backdrop-blur bg-white/80 border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-3">
+        <h1 class="text-lg sm:text-2xl font-semibold leading-tight">Каталог минералов</h1>
+        <div class="hidden sm:block text-xs text-slate-500">GitHub Pages · data.json</div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+        <div class="sm:col-span-8">
+          <label class="text-xs text-slate-600">Поиск</label>
+          <input id="q" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                 placeholder="название, IMA, формула, месторождение…" />
+        </div>
+
+        <div class="sm:col-span-4 flex items-end gap-2">
+          <button id="openFilters"
+                  class="w-full sm:hidden px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-sm flex items-center justify-between">
+            <span>Фильтры</span>
+            <span id="activeFiltersBadge" class="text-xs text-slate-600 mono">0</span>
+          </button>
+
+          <div class="hidden sm:block w-full">
+            <label class="text-xs text-slate-600">Сортировка</label>
+            <select id="sort_d" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+              <option value="name">Название (А→Я)</option>
+              <option value="cost_desc">Стоимость (убыв.)</option>
+              <option value="cost_asc">Стоимость (возр.)</option>
+              <option value="country_count">Страна (по количеству)</option>
+              <option value="class_custom">Класс (порядок каталога)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="hidden sm:grid grid-cols-12 gap-3">
+        <div class="col-span-3">
+          <label class="text-xs text-slate-600">Класс</label>
+          <select id="fClass_d" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+        <div class="col-span-3">
+          <label class="text-xs text-slate-600">Страна</label>
+          <select id="fCountry_d" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+        <div class="col-span-4">
+          <label class="text-xs text-slate-600">Месторождение</label>
+          <select id="fLocality_d" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs text-slate-600">Элемент</label>
+          <select id="fEl_d" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm text-slate-600">
+          <span id="countLabel" class="mono"></span>
+          <span class="mx-2 text-slate-300">•</span>
+          <button id="reset" class="text-slate-700 hover:underline">Сбросить</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-5">
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+        <div class="text-xs text-slate-500">Саммари (по текущей выборке)</div>
+        <div class="mt-2 grid grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs text-slate-500">Образцов</div>
+            <div id="sCount" class="text-lg font-semibold mono">—</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Стран</div>
+            <div id="sCountries" class="text-lg font-semibold mono">—</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Месторождений</div>
+            <div id="sLocalities" class="text-lg font-semibold mono">—</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Сумм. стоимость</div>
+            <div id="sTotalCost" class="text-lg font-semibold mono">—</div>
+          </div>
+        </div>
+        <div class="mt-3 text-xs text-slate-500">* Стоимость считается по заполненным значениям.</div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm lg:col-span-2">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-xs text-slate-500">Распределение по классам (топ-12)</div>
+            <div class="text-sm text-slate-600">Клик по классу применяет фильтр</div>
+          </div>
+          <button id="showAllClasses" class="text-sm text-slate-700 hover:underline">Показать все</button>
+        </div>
+        <div id="classBars" class="mt-3 space-y-2"></div>
+      </div>
+    </section>
+
+    <section>
+      <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      <div class="flex items-center justify-center mt-6">
+        <button id="more" class="hidden px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 shadow-sm">
+          Показать ещё
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/40 p-4 z-40">
+    <div class="bg-white w-full max-w-2xl rounded-2xl border border-slate-200 shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <div class="font-semibold">Классы в коллекции</div>
+        <button id="closeModal" class="px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">Закрыть</button>
+      </div>
+      <div id="modalBody" class="p-4 max-h-[70vh] overflow-auto"></div>
+    </div>
+  </div>
+
+  <!-- Bottom sheet (mobile filters) -->
+  <div id="sheetBackdrop" class="fixed inset-0 hidden bg-black/40 z-50"></div>
+  <div id="sheet" class="fixed left-0 right-0 bottom-0 z-50 sheet-closed transition-transform duration-200 ease-out">
+    <div class="bg-white rounded-t-3xl border-t border-slate-200 shadow-2xl">
+      <div class="max-w-7xl mx-auto px-4 pt-3 pb-2">
+        <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-3"></div>
+        <div class="flex items-center justify-between">
+          <div class="font-semibold">Фильтры</div>
+          <button id="closeFilters" class="px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">Готово</button>
+        </div>
+
+        <div class="mt-3 grid grid-cols-1 gap-3 pb-3">
+          <div>
+            <label class="text-xs text-slate-600">Класс</label>
+            <select id="fClass_m" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-600">Страна</label>
+            <select id="fCountry_m" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-600">Месторождение</label>
+            <select id="fLocality_m" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-600">Элемент в формуле</label>
+            <select id="fEl_m" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white"></select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-600">Сортировка</label>
+            <select id="sort_m" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+              <option value="name">Название (А→Я)</option>
+              <option value="cost_desc">Стоимость (убыв.)</option>
+              <option value="cost_asc">Стоимость (возр.)</option>
+              <option value="country_count">Страна (по количеству)</option>
+              <option value="class_custom">Класс (порядок каталога)</option>
+            </select>
+          </div>
+
+          <div class="flex gap-2 pt-1">
+            <button id="reset_m" class="w-1/2 px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50">Сбросить</button>
+            <button id="apply_m" class="w-1/2 px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800">Применить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const CLASS_ORDER = {"самородные элементы": 0, "сульфиды": 1, "сульфоарсениты, сульфоантимониты и сульфовисмутиты": 2, "сульфосоли": 3, "простые галогениды с h₂o": 4, "простые галогениды без h₂o": 5, "сложные галогениды": 6, "оксил- и гидроксилгалогениды": 7, "галогениды": 8, "оксиды металлов": 9, "гидроксиды": 10, "ураниевые гидроксиды": 11, "ванадаты": 12, "арсениты, антимониты, сульфиты, селениты и пр.": 13, "иодаты": 14, "карбонаты без h₂o": 15, "карбонаты c h₂o": 16, "ураниевые карбонаты": 17, "нитраты": 18, "бораты": 19, "сульфаты без h₂o": 20, "сульфаты с h₂o": 21, "ураниевые сульфаты": 22, "хроматы": 23, "молибдаты и вольфраматы": 24, "ураниевые молибдаты и вольфраматы": 25, "тиосульфаты": 26, "сульфаты": 27, "фосфаты и аналоги без h₂o": 28, "фосфаты и аналоги с h₂o": 29, "ураниевые фосфаты и арсенаты": 30, "полифосфаты и аналоги": 31, "силикаты": 32, "островные ортосиликаты": 33, "соросиликаты": 34, "кольцевые силикаты": 35, "цепочечные силикаты": 36, "слоистые силикаты": 37, "каркасные силикаты без h₂o": 38, "каркасные силикаты с h₂o": 39, "германаты": 40, "органические соединения": 41, "горная порода": 42, "минеральное образование": 43};
+const state = { data: [], filtered: [], page: 0, pageSize: 60, countryCounts: new Map() };
+const el = (id) => document.getElementById(id);
+const fmtInt = (n) => (n ?? 0).toLocaleString('ru-RU');
+const fmtMoney = (n) => (n == null || Number.isNaN(n)) ? '—' : n.toLocaleString('ru-RU', {maximumFractionDigits: 0});
+const norm = (s) => (s || '').toString().toLowerCase().trim();
+
+const CLASS_DIGIT_MAP = {"самородные элементы": "1", "сульфиды": "2", "сульфоарсениты, сульфоантимониты и сульфовисмутиты": "2", "сульфосоли": "2", "простые галогениды с h₂o": "3", "простые галогениды без h₂o": "3", "сложные галогениды": "3", "оксил- и гидроксилгалогениды": "3", "галогениды": "3", "оксиды металлов": "4", "гидроксиды": "4", "ураниевые гидроксиды": "4", "ванадаты": "4", "арсениты, антимониты, сульфиты, селениты и пр.": "4", "иодаты": "4", "карбонаты без h₂o": "5", "карбонаты c h₂o": "5", "ураниевые карбонаты": "5", "нитраты": "5", "бораты": "6", "сульфаты без h₂o": "7", "сульфаты с h₂o": "7", "ураниевые сульфаты": "7", "хроматы": "7", "молибдаты и вольфраматы": "7", "ураниевые молибдаты и вольфраматы": "7", "тиосульфаты": "7", "сульфаты": "7", "фосфаты и аналоги без h₂o": "8", "фосфаты и аналоги с h₂o": "8", "ураниевые фосфаты и арсенаты": "8", "полифосфаты и аналоги": "8", "силикаты": "9", "островные ортосиликаты": "9", "соросиликаты": "9", "кольцевые силикаты": "9", "цепочечные силикаты": "9", "слоистые силикаты": "9", "каркасные силикаты без h₂o": "9", "каркасные силикаты с h₂o": "9", "германаты": "9", "органические соединения": "10", "горная порода": "0", "минеральное образование": "0"};
+const CARD_BG_MAP = {
+  "0": "#ffffff",
+  "10": "#ffffff",
+  "1": "#F3F4F6",
+  "2": "#FFF9D6",
+  "3": "#E8FFF6",
+  "4": "#FFF0F0",
+  "5": "#F6F2FA",
+  "6": "#EEF6FF",
+  "7": "#FAF0E6",
+  "8": "#F7F5F2",
+  "9": "#F2F7F4"
+};
+
+function classDigitFromName(className) {
+  const k = norm(className);
+  if (!k) return "0";
+  return CLASS_DIGIT_MAP[k] || "0";
+}
+function cardBgForClass(className) {
+  const d = classDigitFromName(className);
+  return CARD_BG_MAP[d] || "#ffffff";
+}
+
+function mindatUrl(item) {
+  const q = encodeURIComponent(item.ima_name || item.name_ru || '');
+  return `https://www.mindat.org/search.php?search=${q}`;
+}
+function uniqSorted(arr) { return [...new Set(arr.filter(x => x != null && x !== ''))].sort((a,b) => a.localeCompare(b, 'ru')); }
+function makeOption(value, label) { const o=document.createElement('option'); o.value=value; o.textContent=label; return o; }
+function fillSelect(selectEl, values, placeholder) { selectEl.innerHTML=''; selectEl.appendChild(makeOption('', placeholder)); values.forEach(v => selectEl.appendChild(makeOption(v,v))); }
+
+function openSheet() {
+  el('sheetBackdrop').classList.remove('hidden');
+  el('sheet').classList.remove('sheet-closed');
+  el('sheet').classList.add('sheet-open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet() {
+  el('sheetBackdrop').classList.add('hidden');
+  el('sheet').classList.add('sheet-closed');
+  el('sheet').classList.remove('sheet-open');
+  document.body.style.overflow = '';
+}
+
+function getFilterEls() {
+  return {
+    cls_d: el('fClass_d'), cls_m: el('fClass_m'),
+    c_d: el('fCountry_d'), c_m: el('fCountry_m'),
+    l_d: el('fLocality_d'), l_m: el('fLocality_m'),
+    e_d: el('fEl_d'), e_m: el('fEl_m'),
+    s_d: el('sort_d'), s_m: el('sort_m')
+  };
+}
+function getCurrentFilters() {
+  const fd = getFilterEls();
+  const fClass = (fd.cls_m && fd.cls_m.value) || (fd.cls_d && fd.cls_d.value) || '';
+  const fCountry = (fd.c_m && fd.c_m.value) || (fd.c_d && fd.c_d.value) || '';
+  const fLocality = (fd.l_m && fd.l_m.value) || (fd.l_d && fd.l_d.value) || '';
+  const fEl = (fd.e_m && fd.e_m.value) || (fd.e_d && fd.e_d.value) || '';
+  const sort = (fd.s_m && fd.s_m.value) || (fd.s_d && fd.s_d.value) || 'name';
+  return { fClass, fCountry, fLocality, fEl, sort };
+}
+function activeFiltersCount() {
+  const f = getCurrentFilters();
+  let n=0; if (f.fClass) n++; if (f.fCountry) n++; if (f.fLocality) n++; if (f.fEl) n++;
+  return n;
+}
+function updateActiveBadge() {
+  const b = el('activeFiltersBadge');
+  if (b) b.textContent = String(activeFiltersCount());
+}
+
+function computeSummary(list) {
+  const countries=new Set(), localities=new Set();
+  let totalCost=0, costCount=0;
+  list.forEach(x => {
+    if (x.country) countries.add(x.country);
+    if (x.locality) localities.add(x.locality);
+    if (x.cost != null && !Number.isNaN(x.cost)) { totalCost += x.cost; costCount++; }
+  });
+  return { count:list.length, countries:countries.size, localities:localities.size, totalCost, avgCost: costCount ? totalCost/costCount : null };
+}
+function updateSummary(list) {
+  const s=computeSummary(list);
+  el('sCount').textContent=fmtInt(s.count);
+  el('sCountries').textContent=fmtInt(s.countries);
+  el('sLocalities').textContent=fmtInt(s.localities);
+  el('sTotalCost').textContent=fmtMoney(s.totalCost);
+  el('countLabel').textContent = `Показано: ${fmtInt(list.length)} из ${fmtInt(state.data.length)}`;
+}
+
+function classSortKey(cls) {
+  const k = norm(cls);
+  if (!k) return 1e9;
+  if (k in CLASS_ORDER) return CLASS_ORDER[k];
+  return 5e8;
+}
+function sortClassesForFilter(classes) {
+  return classes.sort((a,b)=> {
+    const ra=classSortKey(a), rb=classSortKey(b);
+    if (ra !== rb) return ra-rb;
+    return (a||'').localeCompare(b||'', 'ru');
+  });
+}
+
+function groupByClass(list) {
+  const m=new Map();
+  list.forEach(x => { const k=x.class || '—'; m.set(k,(m.get(k)||0)+1); });
+  return [...m.entries()].filter(([k])=>k!=='—').sort((a,b)=>b[1]-a[1]);
+}
+function renderClassBars(list) {
+  const bars=el('classBars'); bars.innerHTML='';
+  const grouped=groupByClass(list);
+  const top=grouped.slice(0,12);
+  const max=top.length ? top[0][1] : 1;
+  top.forEach(([cls,cnt])=>{
+    const row=document.createElement('button');
+    row.className='w-full text-left p-2 rounded-xl hover:bg-slate-50 border border-slate-200';
+    row.onclick=()=>{
+      const fd = getFilterEls();
+      if (fd.cls_m) fd.cls_m.value = cls;
+      if (fd.cls_d) fd.cls_d.value = cls;
+      applyFilters();
+      window.scrollTo({top:0, behavior:'smooth'});
+    };
+    row.innerHTML = `
+      <div class="flex items-center justify-between gap-3">
+        <div class="text-sm font-medium">${cls}</div>
+        <div class="text-xs text-slate-500 mono">${fmtInt(cnt)}</div>
+      </div>
+      <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div class="h-2 bg-slate-700/60 rounded-full" style="width:${Math.max(6, Math.round((cnt/max)*100))}%"></div>
+      </div>`;
+    bars.appendChild(row);
+  });
+}
+
+function openAllClassesModal(list) {
+  const grouped=groupByClass(list);
+  const body=el('modalBody'); body.innerHTML='';
+  const grid=document.createElement('div');
+  grid.className='grid grid-cols-1 sm:grid-cols-2 gap-2';
+  grouped.forEach(([cls,cnt])=>{
+    const b=document.createElement('button');
+    b.className='p-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-left';
+    b.innerHTML=`<div class="font-medium">${cls}</div><div class="text-xs text-slate-500 mono">${fmtInt(cnt)} образцов</div>`;
+    b.onclick=()=>{
+      const fd = getFilterEls();
+      if (fd.cls_m) fd.cls_m.value = cls;
+      if (fd.cls_d) fd.cls_d.value = cls;
+      closeModal(); applyFilters(); window.scrollTo({top:0, behavior:'smooth'});
+    };
+    grid.appendChild(b);
+  });
+  body.appendChild(grid);
+  el('modal').classList.remove('hidden'); el('modal').classList.add('flex');
+}
+function closeModal(){ el('modal').classList.add('hidden'); el('modal').classList.remove('flex'); }
+
+function applyFilters() {
+  const q=norm(el('q').value);
+  const f = getCurrentFilters();
+
+  let out = state.data.filter(x=>{
+    if (f.fClass && x.class !== f.fClass) return false;
+    if (f.fCountry && x.country !== f.fCountry) return false;
+    if (f.fLocality && x.locality !== f.fLocality) return false;
+    if (f.fEl && !(x.elements || []).includes(f.fEl)) return false;
+
+    if (!q) return true;
+    const blob=[x.id, x.name_ru, x.name_other, x.ima_name, x.abbr, x.class, x.formula_text, x.locality, x.country].map(norm).join(' | ');
+    return blob.includes(q);
+  });
+
+  const byStr=(k)=>(a,b)=>(a[k]||'').localeCompare(b[k]||'', 'ru');
+  const byNum=(k,dir)=>(a,b)=>((a[k]==null? -Infinity:a[k]) - (b[k]==null? -Infinity:b[k])) * dir;
+
+  if (f.sort==='name') out.sort(byStr('name_ru'));
+  if (f.sort==='cost_desc') out.sort(byNum('cost', -1));
+  if (f.sort==='cost_asc') out.sort(byNum('cost', 1));
+  if (f.sort==='class_custom') out.sort((a,b)=>{
+    const ra=classSortKey(a.class), rb=classSortKey(b.class);
+    if (ra!==rb) return ra-rb;
+    return (a.class||'').localeCompare(b.class||'', 'ru');
+  });
+  if (f.sort==='country_count') out.sort((a,b)=>{
+    const ca = state.countryCounts.get(a.country||'') || 0;
+    const cb = state.countryCounts.get(b.country||'') || 0;
+    if (cb !== ca) return cb - ca;
+    return (a.country||'').localeCompare(b.country||'', 'ru');
+  });
+
+  state.filtered=out;
+  state.page=0;
+  updateSummary(out);
+  renderClassBars(out);
+  updateActiveBadge();
+  renderCards(true);
+}
+
+function cardHtml(x) {
+  const title=x.name_ru || x.ima_name || '—';
+  const subtitle=(x.ima_name && x.ima_name !== title) ? x.ima_name : '';
+  const formula = x.formula_html ? x.formula_html : (x.formula_text || '');
+  const cost=(x.cost != null && !Number.isNaN(x.cost)) ? fmtMoney(x.cost) : '—';
+  const bg = cardBgForClass(x.class);
+
+  return `
+  <div class="card rounded-2xl border border-slate-200 shadow-sm p-4 transition" style="background:${bg};">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="text-lg font-semibold leading-tight">${title}</div>
+        ${subtitle ? `<div class="text-sm text-slate-600">${subtitle}</div>` : ``}
+      </div>
+      <div class="text-xs text-slate-500 mono">${x.id || ''}</div>
+    </div>
+
+    <div class="mt-3 space-y-2 text-sm">
+      ${x.name_other ? `<div class="text-slate-700">${x.name_other}</div>` : ``}
+      ${x.class ? `<div><span class="text-slate-500">Класс:</span> ${x.class}</div>` : ``}
+      ${x.country ? `<div><span class="text-slate-500">Страна:</span> ${x.country}</div>` : ``}
+      ${x.locality ? `<div><span class="text-slate-500">Месторождение:</span> ${x.locality}</div>` : ``}
+      ${formula ? `<div><span class="text-slate-500">Формула:</span> <span class="mono">${formula}</span></div>` : ``}
+      ${x.syngony ? `<div><span class="text-slate-500">Сингония:</span> ${x.syngony}</div>` : ``}
+      ${x.discovery_year ? `<div><span class="text-slate-500">Год открытия:</span> <span class="mono">${x.discovery_year}</span></div>` : ``}
+    </div>
+
+    <div class="mt-4 flex items-center justify-between gap-2">
+      <div class="text-sm">
+        <span class="text-slate-500">Стоимость:</span>
+        <span class="font-semibold mono">${cost}</span>
+      </div>
+      <a class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm"
+         href="${mindatUrl(x)}" target="_blank" rel="noreferrer">Mindat</a>
+    </div>
+
+    ${(x.elements && x.elements.length) ? `
+      <div class="mt-3 flex flex-wrap gap-1">
+        ${x.elements.slice(0, 10).map(e => `<button class="px-2 py-1 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 mono" data-el="${e}">${e}</button>`).join('')}
+        ${x.elements.length > 10 ? `<span class="text-xs text-slate-500">+${x.elements.length-10}</span>` : ``}
+      </div>
+    ` : ``}
+  </div>`;
+}
+
+function renderCards(reset=false) {
+  const cards=el('cards');
+  if (reset) cards.innerHTML='';
+  const start=state.page*state.pageSize;
+  const end=Math.min(state.filtered.length, start + state.pageSize);
+  const slice=state.filtered.slice(start, end);
+
+  slice.forEach(x=>{
+    const wrapper=document.createElement('div');
+    wrapper.innerHTML=cardHtml(x);
+    const card=wrapper.firstElementChild;
+    card.querySelectorAll('button[data-el]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if (el('fEl_m')) el('fEl_m').value = btn.getAttribute('data-el');
+        if (el('fEl_d')) el('fEl_d').value = btn.getAttribute('data-el');
+        applyFilters();
+        window.scrollTo({top:0, behavior:'smooth'});
+      });
+    });
+    cards.appendChild(card);
+  });
+
+  el('more').classList.toggle('hidden', end >= state.filtered.length);
+  state.page += 1;
+}
+
+function resetAll() {
+  el('q').value='';
+  [['fClass_m','fClass_d'],['fCountry_m','fCountry_d'],['fLocality_m','fLocality_d'],['fEl_m','fEl_d']].forEach(([a,b])=>{ if (el(a)) el(a).value=''; if (el(b)) el(b).value=''; });
+  if (el('sort_m')) el('sort_m').value='name';
+  if (el('sort_d')) el('sort_d').value='name';
+  applyFilters();
+}
+
+async function init() {
+  const dataRes = await fetch('./data.json');
+  state.data = await dataRes.json();
+
+  // country counts for sorting
+  const cc = new Map();
+  state.data.forEach(x=>{ const c=x.country||''; if (!c) return; cc.set(c, (cc.get(c)||0)+1); });
+  state.countryCounts = cc;
+
+  const classes = sortClassesForFilter(uniqSorted(state.data.map(x=>x.class)));
+  const countries = uniqSorted(state.data.map(x=>x.country));
+  const localities = uniqSorted(state.data.map(x=>x.locality));
+  const allEls = uniqSorted(state.data.flatMap(x=>x.elements || []));
+
+  fillSelect(el('fClass_d'), classes, 'Все');
+  fillSelect(el('fCountry_d'), countries, 'Все');
+  fillSelect(el('fLocality_d'), localities, 'Все');
+  fillSelect(el('fEl_d'), allEls, 'Любой');
+
+  fillSelect(el('fClass_m'), classes, 'Все');
+  fillSelect(el('fCountry_m'), countries, 'Все');
+  fillSelect(el('fLocality_m'), localities, 'Все');
+  fillSelect(el('fEl_m'), allEls, 'Любой');
+
+  el('q').addEventListener('input', ()=>applyFilters());
+
+  [['fClass_d','fClass_m'],['fCountry_d','fCountry_m'],['fLocality_d','fLocality_m'],['fEl_d','fEl_m'],['sort_d','sort_m']]
+    .forEach(([a,b])=>{ const A=el(a), B=el(b); if (A && B) A.addEventListener('change', ()=>{ B.value=A.value; applyFilters(); }); });
+
+  [['fClass_m','fClass_d'],['fCountry_m','fCountry_d'],['fLocality_m','fLocality_d'],['fEl_m','fEl_d'],['sort_m','sort_d']]
+    .forEach(([a,b])=>{ const A=el(a), B=el(b); if (A && B) A.addEventListener('change', ()=>{ B.value=A.value; applyFilters(); }); });
+
+  el('more').addEventListener('click', ()=>renderCards(false));
+  el('reset').addEventListener('click', resetAll);
+  el('reset_m').addEventListener('click', resetAll);
+  el('apply_m').addEventListener('click', ()=>{ applyFilters(); closeSheet(); });
+
+  el('showAllClasses').addEventListener('click', ()=>openAllClassesModal(state.filtered));
+  el('closeModal').addEventListener('click', closeModal);
+  el('modal').addEventListener('click', (e)=>{ if (e.target === el('modal')) closeModal(); });
+
+  el('openFilters').addEventListener('click', openSheet);
+  el('closeFilters').addEventListener('click', closeSheet);
+  el('sheetBackdrop').addEventListener('click', closeSheet);
+
+  state.filtered = state.data.slice();
+  applyFilters();
+}
+init();
+</script>
+</body>
+</html>
