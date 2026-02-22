@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <g fill="white" stroke="#000" stroke-linejoin="round" stroke-linecap="round">
+    <!-- outer silhouette -->
+    <path d="M32 4 L18 18 L12 36 L20 58 L44 58 L52 36 L46 18 Z" stroke-width="3.5"/>
+    <!-- main central prism -->
+    <path d="M32 7 L24 19 L24 46 L32 56 L40 46 L40 19 Z" stroke-width="3"/>
+    <!-- left cluster -->
+    <path d="M20 21 L15.5 27 L15.5 41 L20.5 48 L24 44 L24 24 Z" stroke-width="3"/>
+    <path d="M18.5 33 L24 30" stroke-width="2.2"/>
+    <!-- right cluster -->
+    <path d="M44 21 L40 24 L40 44 L43.5 48 L48.5 41 L48.5 27 Z" stroke-width="3"/>
+    <path d="M45.5 33 L40 30" stroke-width="2.2"/>
+    <!-- front small crystal -->
+    <path d="M32 28 L26.5 34 L30 42 L34 42 L37.5 34 Z" stroke-width="2.8"/>
+    <!-- internal hatching lines -->
+    <g stroke-width="1.8">
+      <path d="M28 14 L30.5 18"/>
+      <path d="M36 14 L33.5 18"/>
+      <path d="M26 24 L30 24"/>
+      <path d="M34 24 L38 24"/>
+      <path d="M26 38 L30 38"/>
+      <path d="M34 38 L38 38"/>
+      <path d="M30 46 L32 51"/>
+      <path d="M34 46 L32 51"/>
+      <path d="M17.2 29.5 L21.2 27"/>
+      <path d="M17.2 37 L21.2 35"/>
+      <path d="M46.8 29.5 L42.8 27"/>
+      <path d="M46.8 37 L42.8 35"/>
+    </g>
+    <!-- subtle base facets -->
+    <g stroke-width="2.2">
+      <path d="M24 46 L20 58"/>
+      <path d="M40 46 L44 58"/>
+      <path d="M20 58 L32 56 L44 58"/>
+    </g>
+  </g>
+</svg>
