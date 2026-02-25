@@ -1,0 +1,1414 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Каталог минералов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --stone: #1a1714;
+      --amber: #c8a96e;
+      --slate-deep: #2d3142;
+      --crystal: #e8e4da;
+      --malachite: #3d7a5c;
+      --amethyst: #7b5ea7;
+      --pyrite: #b8960c;
+    }
+
+    body { font-family: 'Inter', sans-serif; background: #f5f2ed; }
+    h1, .display { font-family: 'Syne', sans-serif; }
+    .mono { font-family: ui-monospace, 'Cascadia Code', 'Menlo', monospace; font-variant-numeric: tabular-nums; font-size: 0.9em; }
+    .formula { font-family: 'Fira Code', ui-monospace, monospace; font-size: 0.82em; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+
+    /* Header */
+    .site-header {
+      background: var(--stone);
+      border-bottom: 1px solid rgba(200, 169, 110, 0.3);
+    }
+    .header-title { color: var(--amber); letter-spacing: 0.02em; }
+    .header-meta { color: rgba(232, 228, 218, 0.4); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+    /* Controls */
+    .control-row { background: #fff; border-bottom: 1px solid #e8e3da; }
+    .search-input {
+      border: 1.5px solid #d6d0c6;
+      border-radius: 10px;
+      background: #faf9f6;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px rgba(200,169,110,0.12);
+    }
+    .select-control {
+      border: 1.5px solid #d6d0c6;
+      border-radius: 10px;
+      background: #faf9f6;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.2s;
+    }
+    .select-control:focus { outline: none; border-color: var(--amber); }
+    .btn-ghost {
+      border: 1.5px solid #d6d0c6;
+      border-radius: 10px;
+      background: #fff;
+      transition: all 0.15s;
+    }
+    .btn-ghost:hover { background: #f5f2ed; border-color: #b8b0a0; }
+    .btn-primary {
+      background: var(--stone);
+      color: var(--amber);
+      border-radius: 10px;
+      border: none;
+      transition: all 0.15s;
+    }
+    .btn-primary:hover { background: #2d2822; }
+
+    /* Stat cards */
+    .stat-card {
+      background: #fff;
+      border: 1px solid #e2ddd5;
+      border-radius: 16px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .stat-card:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+    .stat-value { font-family: 'Syne', sans-serif; color: var(--stone); letter-spacing: -0.01em; }
+    .stat-label { color: #8a8070; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
+
+    /* Mineral cards */
+    .mineral-card {
+      background: #fff;
+      border: 1px solid #e2ddd5;
+      border-radius: 16px;
+      transition: transform 0.18s, box-shadow 0.18s;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .mineral-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--card-accent, #c8a96e);
+      opacity: 0.7;
+    }
+    .mineral-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.10); }
+    .mineral-card:hover::before { opacity: 1; }
+
+    /* Card ID badge — uses card accent color */
+    .card-id {
+      font-family: ui-monospace, 'Menlo', monospace;
+      font-size: 0.62rem;
+      color: var(--card-id-color, #6b7280);
+      background: var(--card-id-bg, #f3f4f6);
+      border: 1px solid var(--card-id-border, #e5e7eb);
+      border-radius: 5px;
+      padding: 2px 7px;
+      cursor: default;
+      text-decoration: none;
+      display: inline-block;
+      letter-spacing: 0.04em;
+      user-select: text;
+      line-height: 1.6;
+    }
+
+    .class-badge {
+      font-size: 0.62rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .el-chip {
+      font-family: ui-monospace, 'Menlo', monospace;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #f0ede8;
+      border: 1px solid #ddd8d0;
+      color: var(--stone);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .el-chip:hover { background: var(--stone); color: var(--amber); border-color: var(--stone); }
+
+    /* Bar charts */
+    .bar-row {
+      cursor: pointer;
+      border-radius: 10px;
+      padding: 8px 10px;
+      transition: background 0.12s;
+    }
+    .bar-row:hover { background: #f5f2ed; }
+    .bar-fill {
+      height: 6px;
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    /* Viz section */
+    .viz-panel {
+      background: #fff;
+      border: 1px solid #e2ddd5;
+      border-radius: 16px;
+    }
+    .viz-tab {
+      font-size: 0.78rem;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #8a8070;
+      font-weight: 500;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .viz-tab.active { background: var(--stone); color: var(--amber); }
+    .viz-tab:not(.active):hover { background: #f5f2ed; color: var(--stone); }
+
+    /* Modal */
+    .detail-modal-bg {
+      backdrop-filter: blur(4px);
+      background: rgba(26,23,20,0.6);
+    }
+    .detail-modal {
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid #e2ddd5;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .detail-modal::-webkit-scrollbar { width: 6px; }
+    .detail-modal::-webkit-scrollbar-track { background: #f5f2ed; }
+    .detail-modal::-webkit-scrollbar-thumb { background: #c8bfaf; border-radius: 3px; }
+
+    .modal-header {
+      background: var(--stone);
+      border-radius: 19px 19px 0 0;
+      padding: 20px 24px;
+    }
+    .modal-title { font-family: 'Syne', sans-serif; color: #fff; font-size: 1.5rem; }
+    .modal-subtitle { color: rgba(232,228,218,0.7); font-size: 0.85rem; }
+    .modal-id { font-family: ui-monospace, 'Menlo', monospace; color: var(--amber); font-size: 0.75rem; }
+
+    .detail-row { border-bottom: 1px solid #f0ede8; padding: 10px 0; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { color: #9a8f7e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 500; }
+    .detail-val { color: var(--stone); font-size: 0.92rem; margin-top: 2px; }
+
+    .mindat-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: var(--stone);
+      color: var(--amber);
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .mindat-link:hover { background: #2d2822; transform: translateY(-1px); }
+
+    .mindat-id-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: #f5f2ed;
+      color: var(--stone);
+      border: 1.5px solid #e2ddd5;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .mindat-id-link:hover { background: #ede9e0; transform: translateY(-1px); }
+
+    /* Sheet / mobile */
+    .sheet-closed { transform: translateY(110%); }
+    .sheet-open { transform: translateY(0%); }
+
+    /* Sparkle bars for elements viz */
+    .el-bar { height: 30px; border-radius: 6px; background: #f0ede8; overflow: hidden; position: relative; margin-bottom: 6px; }
+    .el-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--malachite), #5aad7e); border-radius: 6px; transition: width 0.4s ease; }
+    .el-bar-label { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-family: ui-monospace, 'Menlo', monospace; font-size: 0.75rem; font-weight: 500; color: var(--stone); z-index: 1; }
+    .el-bar-count { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: #6a6050; z-index: 1; }
+
+    /* Country chips */
+    .country-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0ede8; cursor: pointer; transition: background 0.12s; border-radius: 8px; padding-left: 8px; }
+    .country-row:hover { background: #f5f2ed; }
+    .country-flag { font-size: 1.2rem; width: 28px; text-align: center; }
+    .country-bar-wrap { flex: 1; height: 8px; background: #f0ede8; border-radius: 4px; overflow: hidden; }
+    .country-bar-fill { height: 100%; background: linear-gradient(90deg, var(--amethyst), #a07ed4); border-radius: 4px; transition: width 0.4s ease; }
+
+    /* Syngony donut placeholder */
+    .syngony-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .syngony-cell {
+      background: #f5f2ed;
+      border: 1px solid #e2ddd5;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .syngony-cell:hover { background: var(--stone); color: var(--amber); border-color: var(--stone); }
+    .syngony-num { font-family: 'Syne', sans-serif; font-size: 1.4rem; display: block; }
+    .syngony-name { font-size: 0.68rem; color: #8a8070; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+    .syngony-cell:hover .syngony-name { color: rgba(232,228,218,0.6); }
+
+    /* Timeline */
+    .timeline-bar-wrap { flex: 1; height: 20px; background: #f5f2ed; border-radius: 4px; overflow: hidden; position: relative; }
+    .timeline-bar-fill { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, var(--pyrite), var(--amber)); border-radius: 4px; transition: all 0.4s; }
+    .timeline-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+
+    /* Cost badge */
+    .cost-value {
+      font-weight: 600;
+      color: var(--stone);
+    }
+
+    /* Scroll to top */
+    #scrollTop {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 42px;
+      height: 42px;
+      background: var(--stone);
+      color: var(--amber);
+      border: none;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      z-index: 99;
+      transition: all 0.2s;
+    }
+    #scrollTop:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+    #scrollTop.visible { display: flex; }
+
+    /* Breadcrumb filter tags */
+    .filter-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: var(--stone);
+      color: var(--amber);
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .filter-tag button { opacity: 0.7; transition: opacity 0.15s; background: none; border: none; color: inherit; cursor: pointer; padding: 0; font-size: 0.9rem; line-height: 1; }
+    .filter-tag button:hover { opacity: 1; }
+
+    /* Photo in modal */
+    .photo-wrap { border-radius: 12px; overflow: hidden; background: #f5f2ed; margin-bottom: 16px; }
+    .photo-wrap img { width: 100%; display: block; max-height: 340px; object-fit: contain; }
+    .btn-photo {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px; border-radius: 10px;
+      background: #f5f2ed; color: var(--stone);
+      border: 1.5px solid #e2ddd5; font-size: 0.85rem;
+      font-weight: 500; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-photo:hover { background: #ede9e0; }
+    .btn-photo.uploading { opacity: 0.6; pointer-events: none; }
+    #vizTabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
+    #vizTabs::-webkit-scrollbar { display: none; }
+    
+    /* Mobile card improvements */
+    @media (max-width: 640px) {
+      .mineral-card { border-radius: 12px; }
+      .detail-modal { border-radius: 16px; max-height: 95vh; }
+      .modal-header { border-radius: 15px 15px 0 0; padding: 16px 18px; }
+      .modal-title { font-size: 1.2rem; }
+      /* Make filter controls full width on mobile */
+      .control-row .flex-wrap { gap: 6px; }
+    }
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #f0ede8 25%, #e8e4da 50%, #f0ede8 75%);
+      background-size: 1000px 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div>
+        <h1 class="header-title text-xl sm:text-2xl font-semibold leading-tight display">Каталог минералов</h1>
+        <div class="header-meta mt-0.5">Минеральная коллекция · data.json</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="toggleCosts" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style="background:rgba(200,169,110,0.15); color: var(--amber); border: 1px solid rgba(200,169,110,0.3);">
+          Стоимость: скрыто
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="control-row sticky top-[57px] z-20">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-2">
+      <div class="flex gap-2">
+        <div class="flex-1 relative">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
+          <input id="q" class="search-input w-full pl-9 pr-3 py-2 text-sm" placeholder="Название, формула, месторождение, IMA, ID…" />
+        </div>
+        <button id="openFilters" class="sm:hidden btn-ghost px-3 py-2 text-sm flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M7 12h10M11 20h2"/></svg>
+          <span id="activeFiltersBadge" class="mono text-xs">0</span>
+        </button>
+        <select id="sort_d" class="hidden sm:block select-control px-3 py-2 text-sm">
+          <option value="name">Название А→Я</option>
+          <option value="class_custom">Порядок каталога</option>
+          <option value="country_count">Топ страны</option>
+          <option value="cost_desc">Стоимость ↓</option>
+          <option value="cost_asc">Стоимость ↑</option>
+        </select>
+      </div>
+      <div class="hidden sm:flex flex-wrap gap-2">
+        <select id="fClass_d" class="select-control px-3 py-1.5 text-xs flex-1 min-w-[140px]"></select>
+        <select id="fCountry_d" class="select-control px-3 py-1.5 text-xs flex-1 min-w-[120px]"></select>
+        <select id="fLocality_d" class="select-control px-3 py-1.5 text-xs flex-1 min-w-[150px]"></select>
+        <select id="fEl_d" class="select-control px-3 py-1.5 text-xs min-w-[100px]"></select>
+      </div>
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span id="countLabel" class="mono text-xs text-stone-500"></span>
+          <div id="activeTags" class="flex flex-wrap gap-1"></div>
+        </div>
+        <button id="reset" class="text-xs text-stone-500 hover:text-stone-800 transition-colors">Сбросить всё</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-5">
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      <div class="stat-card p-4">
+        <div class="stat-label">Образцов</div>
+        <div id="sCount" class="stat-value text-3xl font-bold mt-1">—</div>
+      </div>
+      <div class="stat-card p-4">
+        <div class="stat-label">Стран</div>
+        <div id="sCountries" class="stat-value text-3xl font-bold mt-1">—</div>
+      </div>
+      <div class="stat-card p-4">
+        <div class="stat-label">Месторождений</div>
+        <div id="sLocalities" class="stat-value text-3xl font-bold mt-1">—</div>
+      </div>
+      <div class="stat-card p-4">
+        <div class="stat-label" id="sTotalCostLabel">стоимостью</div>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span id="sTotalCost" class="stat-value text-2xl font-bold">—</span>
+          <span id="sTotalCostIcon" class="text-stone-400" style="font-size:1rem;font-weight:600;display:none">₽</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Viz section -->
+    <div class="viz-panel p-4 mb-5">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex gap-1 overflow-x-auto pb-1" id="vizTabs" style="-webkit-overflow-scrolling:touch; scrollbar-width:none; flex-wrap:nowrap; min-width:0; flex:1">
+          <button class="viz-tab active" data-viz="classes">По классам</button>
+          <button class="viz-tab" data-viz="countries">По странам</button>
+          <button class="viz-tab" data-viz="elements">Элементы</button>
+          <button class="viz-tab" data-viz="timeline">Годы открытия</button>
+          <button class="viz-tab" data-viz="cost" id="costVizTab">Стоимость</button>
+        </div>
+        <button id="showAllClasses" class="text-xs text-stone-500 hover:text-stone-800 transition-colors">Все классы</button>
+      </div>
+      <div id="vizBody"></div>
+    </div>
+
+    <!-- Cards grid -->
+    <section>
+      <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      <div class="flex items-center justify-center mt-6">
+        <button id="more" class="hidden btn-ghost px-5 py-2.5 text-sm font-medium">Показать ещё</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Scroll-to-top -->
+  <button id="scrollTop">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+  </button>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="fixed inset-0 hidden items-center justify-center detail-modal-bg p-4 z-50">
+    <div class="detail-modal w-full max-w-xl relative">
+      <div class="modal-header">
+        <button id="closeDetail" class="absolute top-4 right-4 text-white/60 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+        <div class="modal-id mono mb-1" id="mId"></div>
+        <div class="modal-title" id="mName"></div>
+        <div class="modal-subtitle" id="mSubname"></div>
+      </div>
+      <div id="mBody" class="p-6"></div>
+    </div>
+  </div>
+
+  <!-- All-classes modal -->
+  <div id="modal" class="fixed inset-0 hidden items-center justify-center detail-modal-bg p-4 z-40">
+    <div class="bg-white w-full max-w-2xl rounded-2xl border border-slate-200 shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between" style="background: var(--stone); border-radius: 16px 16px 0 0;">
+        <div class="font-semibold text-white" style="font-family: 'Syne', sans-serif;">Все классы в коллекции</div>
+        <button id="closeModal" class="text-white/60 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="modalBody" class="p-4 max-h-[70vh] overflow-auto"></div>
+    </div>
+  </div>
+
+  <!-- Mobile filters sheet -->
+  <div id="sheetBackdrop" class="fixed inset-0 hidden bg-black/40 z-50"></div>
+  <div id="sheet" class="fixed left-0 right-0 bottom-0 z-50 sheet-closed transition-transform duration-200 ease-out">
+    <div class="bg-white rounded-t-3xl border-t border-slate-200 shadow-2xl">
+      <div class="max-w-7xl mx-auto px-4 pt-3 pb-4">
+        <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-3"></div>
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-semibold" style="font-family: 'Syne', sans-serif;">Фильтры</div>
+          <button id="closeFilters" class="btn-ghost px-3 py-1 text-sm">Готово</button>
+        </div>
+        <div class="space-y-3">
+          <div><label class="text-xs text-stone-500 uppercase tracking-wide">Класс</label>
+            <select id="fClass_m" class="select-control w-full mt-1 px-3 py-2 text-sm"></select></div>
+          <div><label class="text-xs text-stone-500 uppercase tracking-wide">Страна</label>
+            <select id="fCountry_m" class="select-control w-full mt-1 px-3 py-2 text-sm"></select></div>
+          <div><label class="text-xs text-stone-500 uppercase tracking-wide">Месторождение</label>
+            <select id="fLocality_m" class="select-control w-full mt-1 px-3 py-2 text-sm"></select></div>
+          <div><label class="text-xs text-stone-500 uppercase tracking-wide">Элемент в формуле</label>
+            <select id="fEl_m" class="select-control w-full mt-1 px-3 py-2 text-sm"></select></div>
+          <div><label class="text-xs text-stone-500 uppercase tracking-wide">Сортировка</label>
+            <select id="sort_m" class="select-control w-full mt-1 px-3 py-2 text-sm">
+              <option value="name">Название А→Я</option>
+              <option value="class_custom">Порядок каталога</option>
+              <option value="country_count">Топ страны</option>
+              <option value="cost_desc">Стоимость ↓</option>
+              <option value="cost_asc">Стоимость ↑</option>
+            </select></div>
+          <div class="flex gap-2 pt-1">
+            <button id="reset_m" class="w-1/2 btn-ghost px-3 py-2 text-sm">Сбросить</button>
+            <button id="apply_m" class="w-1/2 btn-primary px-3 py-2 text-sm">Применить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost auth modal -->
+  <div id="authModal" class="fixed inset-0 hidden items-center justify-center detail-modal-bg p-4 z-50">
+    <div class="bg-white w-full max-w-md rounded-2xl border border-slate-200 shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between" style="background: var(--stone); border-radius: 16px 16px 0 0;">
+        <div class="font-semibold text-white" style="font-family: 'Syne', sans-serif;">Показать стоимость</div>
+        <button id="closeAuth" class="text-white/60 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-3">
+        <div class="text-sm text-stone-600">Введите пароль для отображения стоимости (до закрытия вкладки).</div>
+        <input id="authPassword" type="password" autocomplete="current-password"
+               class="search-input w-full px-3 py-2 text-sm" placeholder="Пароль" />
+        <div id="authError" class="hidden text-sm text-red-600">Неверный пароль</div>
+        <div class="flex gap-2 pt-1">
+          <button id="authCancel" class="w-1/2 btn-ghost px-3 py-2 text-sm">Отмена</button>
+          <button id="authSubmit" class="w-1/2 btn-primary px-3 py-2 text-sm">Открыть</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+const SB_URL = 'https://ainefyjlnuxjpllrlhls.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpbmVmeWpsbnV4anBsbHJsaGxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNDE5NDAsImV4cCI6MjA4NzYxNzk0MH0.LsjJPSr_Y8falzZlHP9WtjV60KOc-W8J99pYbVTQzIE';
+const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+
+async function sbFetchAll() {
+  // Select only needed fields from the jsonb data column to reduce payload
+  const fields = 'id,photo_url,data->id,data->name_ru,data->name_other,data->ima_name,data->abbr,data->class,data->formula_html,data->formula_text,data->elements,data->syngony,data->locality,data->country,data->country_code,data->discovery_year,data->cost,data->ue_band';
+  let all = [], offset = 0;
+  const limit = 500; // smaller batches to avoid connection reset
+  while (true) {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/minerals?select=${encodeURIComponent(fields)}&order=id&limit=${limit}&offset=${offset}`,
+      { headers: SB_HEADERS }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const rows = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) break;
+    all = all.concat(rows);
+    if (rows.length < limit) break;
+    offset += limit;
+  }
+  return all;
+}
+
+async function sbUploadPhoto(file, mineralId) {
+  // Safe filename: replace spaces, brackets, slashes with underscores
+  const safeName = mineralId.replace(/[\s\/\\()\[\]#%?&=+]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') + '.jpg';
+
+  // Convert any image to jpeg via canvas
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  // Limit max dimension to 2000px to keep file size reasonable
+  const maxDim = 2000;
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.88));
+
+  // Upload to Supabase Storage
+  const uploadRes = await fetch(`${SB_URL}/storage/v1/object/photos/${safeName}`, {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+    body: blob
+  });
+  if (!uploadRes.ok) {
+    const e = await uploadRes.json().catch(() => ({}));
+    throw new Error(e.error || e.message || `HTTP ${uploadRes.status}`);
+  }
+
+  // Public URL (no encoding needed — safe chars only)
+  const photoUrl = `${SB_URL}/storage/v1/object/public/photos/${safeName}`;
+
+  // Save URL back to minerals row — ID needs proper encoding for REST filter
+  const idFilter = encodeURIComponent(mineralId);
+  await fetch(`${SB_URL}/rest/v1/minerals?id=eq.${idFilter}`, {
+    method: 'PATCH',
+    headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ photo_url: photoUrl })
+  });
+
+  return photoUrl;
+}
+
+// ============================================================
+// CLASS CONFIG
+// ============================================================
+const CLASS_ORDER = {"самородные элементы": 0, "сульфиды": 1, "сульфоарсениты, сульфоантимониты и сульфовисмутиты": 2, "сульфосоли": 3, "простые галогениды с h₂o": 4, "простые галогениды без h₂o": 5, "сложные галогениды": 6, "оксил- и гидроксилгалогениды": 7, "галогениды": 8, "оксиды металлов": 9, "гидроксиды": 10, "ураниевые гидроксиды": 11, "ванадаты": 12, "арсениты, антимониты, сульфиты, селениты и пр.": 13, "иодаты": 14, "карбонаты без h₂o": 15, "карбонаты c h₂o": 16, "ураниевые карбонаты": 17, "нитраты": 18, "бораты": 19, "сульфаты без h₂o": 20, "сульфаты с h₂o": 21, "ураниевые сульфаты": 22, "хроматы": 23, "молибдаты и вольфраматы": 24, "ураниевые молибдаты и вольфраматы": 25, "тиосульфаты": 26, "сульфаты": 27, "фосфаты и аналоги без h₂o": 28, "фосфаты и аналоги с h₂o": 29, "ураниевые фосфаты и арсенаты": 30, "полифосфаты и аналоги": 31, "силикаты": 32, "островные ортосиликаты": 33, "соросиликаты": 34, "кольцевые силикаты": 35, "цепочечные силикаты": 36, "слоистые силикаты": 37, "каркасные силикаты без h₂o": 38, "каркасные силикаты с h₂o": 39, "германаты": 40, "органические соединения": 41, "горная порода": 42, "минеральное образование": 43};
+const CLASS_DIGIT_MAP = {"самородные элементы": "1", "сульфиды": "2", "сульфоарсениты, сульфоантимониты и сульфовисмутиты": "2", "сульфосоли": "2", "простые галогениды с h₂o": "3", "простые галогениды без h₂o": "3", "сложные галогениды": "3", "оксил- и гидроксилгалогениды": "3", "галогениды": "3", "оксиды металлов": "4", "гидроксиды": "4", "ураниевые гидроксиды": "4", "ванадаты": "4", "арсениты, антимониты, сульфиты, селениты и пр.": "4", "иодаты": "4", "карбонаты без h₂o": "5", "карбонаты c h₂o": "5", "ураниевые карбонаты": "5", "нитраты": "5", "бораты": "6", "сульфаты без h₂o": "7", "сульфаты с h₂o": "7", "ураниевые сульфаты": "7", "хроматы": "7", "молибдаты и вольфраматы": "7", "ураниевые молибдаты и вольфраматы": "7", "тиосульфаты": "7", "сульфаты": "7", "фосфаты и аналоги без h₂o": "8", "фосфаты и аналоги с h₂o": "8", "ураниевые фосфаты и арсенаты": "8", "полифосфаты и аналоги": "8", "силикаты": "9", "островные ортосиликаты": "9", "соросиликаты": "9", "кольцевые силикаты": "9", "цепочечные силикаты": "9", "слоистые силикаты": "9", "каркасные силикаты без h₂o": "9", "каркасные силикаты с h₂o": "9", "германаты": "9", "органические соединения": "10", "горная порода": "0", "минеральное образование": "0"};
+
+// Accent colors per class digit
+const CLASS_ACCENTS = {
+  "0": "#8a8070", "1": "#c8a96e", "2": "#e8a030",
+  "3": "#4fad7f", "4": "#e06060", "5": "#9b7dd4",
+  "6": "#5090d4", "7": "#c87832", "8": "#8a9e7c",
+  "9": "#5a9e80", "10": "#9e7a5a"
+};
+const CLASS_BG = {
+  "0": "#ffffff", "1": "#F3F4F6", "2": "#FFF9D6",
+  "3": "#E8FFF6", "4": "#FFF0F0", "5": "#F6F2FA",
+  "6": "#EEF6FF", "7": "#FAF0E6", "8": "#F7F5F2",
+  "9": "#F2F7F4", "10": "#ffffff"
+};
+
+// Country name → ISO 3166-1 alpha-2 → emoji flag (universal, no manual list needed)
+const COUNTRY_ISO = {
+  "Россия":"RU","США":"US","Германия":"DE","Австрия":"AT","Австралия":"AU",
+  "Мексика":"MX","Перу":"PE","Бразилия":"BR","Китай":"CN","Канада":"CA",
+  "Франция":"FR","Чили":"CL","Аргентина":"AR","Намибия":"NA","ЮАР":"ZA",
+  "Замбия":"ZM","Конго":"CD","Марокко":"MA","Великобритания":"GB","Италия":"IT",
+  "Испания":"ES","Польша":"PL","Чехия":"CZ","Румыния":"RO","Болгария":"BG",
+  "Казахстан":"KZ","Украина":"UA","Узбекистан":"UZ","Пакистан":"PK",
+  "Афганистан":"AF","Индия":"IN","Монголия":"MN","Швеция":"SE","Норвегия":"NO",
+  "Финляндия":"FI","Португалия":"PT","Япония":"JP","Тайвань":"TW",
+  "Туркменистан":"TM","Таджикистан":"TJ","Кыргызстан":"KG","Беларусь":"BY",
+  "Грузия":"GE","Армения":"AM","Азербайджан":"AZ","Иран":"IR","Турция":"TR",
+  "Египет":"EG","Алжир":"DZ","Тунис":"TN","Нигерия":"NG","Кения":"KE",
+  "Танзания":"TZ","Мозамбик":"MZ","Мадагаскар":"MG","Зимбабве":"ZW",
+  "Ботсвана":"BW","Ангола":"AO","Эфиопия":"ET","Гана":"GH","Мали":"ML",
+  "Нигер":"NE","Руанда":"RW","Уганда":"UG","Конго (Браззавиль)":"CG",
+  "Швейцария":"CH","Нидерланды":"NL","Бельгия":"BE","Дания":"DK",
+  "Ирландия":"IE","Греция":"GR","Венгрия":"HU","Словакия":"SK",
+  "Словения":"SI","Хорватия":"HR","Сербия":"RS","Босния":"BA",
+  "Северная Македония":"MK","Албания":"AL","Молдова":"MD","Литва":"LT",
+  "Латвия":"LV","Эстония":"EE","Израиль":"IL","Иордания":"JO",
+  "Саудовская Аравия":"SA","ОАЭ":"AE","Оман":"OM","Йемен":"YE",
+  "Шри-Ланка":"LK","Мьянма":"MM","Таиланд":"TH","Вьетнам":"VN",
+  "Малайзия":"MY","Индонезия":"ID","Филиппины":"PH","Южная Корея":"KR",
+  "Новая Зеландия":"NZ","Колумбия":"CO","Боливия":"BO","Венесуэла":"VE",
+  "Эквадор":"EC","Парагвай":"PY","Уругвай":"UY","Куба":"CU","Гаити":"HT"
+};
+function countryFlag(name) {
+  const iso = COUNTRY_ISO[name];
+  if (!iso) return '';
+  // Convert ISO code to emoji flag via regional indicator symbols
+  return [...iso.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('');
+}
+
+const COST_PASSWORD_HASH = "e3a05765ec61974d3ae0ff2e3fef656f1591294f6500719eec22aad9968c8120";
+
+// ============================================================
+// PHOTO — Supabase Storage, accessible from any device
+// ============================================================
+function renderPhotoSection(x, container) {
+  container.innerHTML = '';
+
+  // Show existing photo if any
+  const url = x.photo_url;
+  if (url) {
+    const img = document.createElement('img');
+    img.src = url + '?t=' + Math.floor(Date.now()/60000); // 1-min cache bust
+    img.alt = x.name_ru || x.id || '';
+    img.style.cssText = 'width:100%;display:block;max-height:360px;object-fit:contain;border-radius:12px;margin-bottom:12px;background:#000';
+    img.onerror = () => img.remove();
+    container.appendChild(img);
+  }
+
+  // Upload button
+  const btn = document.createElement('button');
+  btn.className = 'btn-photo';
+  btn.style.marginBottom = '16px';
+  btn.innerHTML = `<svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>${url ? ' Заменить фото' : ' Добавить фото'}`;
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+
+  btn.onclick = () => fileInput.click();
+  fileInput.onchange = async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    btn.classList.add('uploading');
+    btn.innerHTML = 'Загружаю…';
+    try {
+      const newUrl = await sbUploadPhoto(file, x.id);
+      x.photo_url = newUrl;
+      // Update in state.data too so re-opening card shows new photo
+      const rec = state.data.find(d => d.id === x.id);
+      if (rec) rec.photo_url = newUrl;
+      renderPhotoSection(x, container);
+    } catch(e) {
+      alert('Ошибка загрузки: ' + e.message);
+      btn.classList.remove('uploading');
+      btn.innerHTML = `<svg style="width:15px;height:15px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>${url ? ' Заменить фото' : ' Добавить фото'}`;
+    }
+  };
+
+  container.appendChild(btn);
+  container.appendChild(fileInput);
+}
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  data: [], filtered: [], page: 0, pageSize: 60,
+  countryCounts: new Map(), costUnlocked: sessionStorage.getItem('costUnlocked') === '1',
+  currentViz: 'classes', openItem: null, decadeFilter: null
+};
+
+const el = (id) => document.getElementById(id);
+const fmtInt = (n) => (n ?? 0).toLocaleString('ru-RU');
+const fmtMoney = (n) => (n == null || isNaN(n)) ? '—' : n.toLocaleString('ru-RU', {maximumFractionDigits: 0});
+const norm = (s) => (s || '').toString().toLowerCase().trim();
+
+function classDigit(cls) { return CLASS_DIGIT_MAP[norm(cls)] || "0"; }
+function cardAccent(cls) { return CLASS_ACCENTS[classDigit(cls)] || "#c8a96e"; }
+function cardBg(cls) { return CLASS_BG[classDigit(cls)] || "#faf9f6"; }
+
+// ============================================================
+// AUTH / COST
+// ============================================================
+async function sha256Hex(str) {
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+function updateCostUI() {
+  const btn = el('toggleCosts');
+  if (btn) btn.textContent = state.costUnlocked ? 'Стоимость: показано' : 'Стоимость: скрыто';
+  const costTab = el('costVizTab');
+  if (costTab) costTab.textContent = state.costUnlocked ? 'Стоимость' : '🔒 Стоимость';
+  ['sort_d','sort_m'].forEach(id => {
+    const sel = el(id); if (!sel) return;
+    [...sel.options].forEach(o => {
+      if (o.value === 'cost_desc' || o.value === 'cost_asc') {
+        o.disabled = !state.costUnlocked;
+        o.textContent = state.costUnlocked
+          ? (o.value === 'cost_desc' ? 'Стоимость ↓' : 'Стоимость ↑')
+          : (o.value === 'cost_desc' ? 'Стоимость ↓ 🔒' : 'Стоимость ↑ 🔒');
+      }
+    });
+    if (!state.costUnlocked && (sel.value === 'cost_desc' || sel.value === 'cost_asc')) sel.value = 'name';
+  });
+}
+function openAuth() { el('authError')?.classList.add('hidden'); el('authPassword').value=''; el('authModal').classList.remove('hidden'); el('authModal').classList.add('flex'); setTimeout(()=>el('authPassword')?.focus(), 50); }
+function closeAuth() { el('authModal').classList.add('hidden'); el('authModal').classList.remove('flex'); }
+async function tryUnlock() {
+  const h = await sha256Hex((el('authPassword').value||'').trim());
+  if (h === COST_PASSWORD_HASH) { state.costUnlocked=true; sessionStorage.setItem('costUnlocked','1'); closeAuth(); updateCostUI(); applyFilters(); }
+  else el('authError')?.classList.remove('hidden');
+}
+function lockCosts() { state.costUnlocked=false; sessionStorage.removeItem('costUnlocked'); updateCostUI(); applyFilters(); }
+
+// ============================================================
+// HELPERS
+// ============================================================
+function uniqSorted(arr) { return [...new Set(arr.filter(x=>x!=null&&x!==''))].sort((a,b)=>a.localeCompare(b,'ru')); }
+function makeOption(v,l) { const o=document.createElement('option'); o.value=v; o.textContent=l; return o; }
+function fillSelect(sel, vals, ph) { sel.innerHTML=''; sel.appendChild(makeOption('',ph)); vals.forEach(v=>sel.appendChild(makeOption(v,v))); }
+function classSortKey(cls) { const k=norm(cls); return k in CLASS_ORDER ? CLASS_ORDER[k] : 5e8; }
+function sortClassesForFilter(classes) {
+  return classes.sort((a,b) => { const ra=classSortKey(a), rb=classSortKey(b); return ra!==rb ? ra-rb : (a||'').localeCompare(b||'','ru'); });
+}
+
+// Smart locality counting — deduplicate by suffix matching
+// "A, B, C" and "B, C" and "B, C (типовое)" are all the same locality
+function normalizeLocality(loc) {
+  if (!loc) return '';
+  return loc.trim()
+    .replace(/\s*\(типов[а-я]+\)\s*$/i, '')  // remove (типовое), (типовой), etc.
+    .replace(/\s*\(тип\.\)\s*$/i, '')
+    .replace(/\s*\(type\s*locality\)\s*$/i, '')
+    .trim().toLowerCase();
+}
+function countUniqueLocalities(list) {
+  const norms = list.map(x => normalizeLocality(x.locality)).filter(Boolean);
+  if (!norms.length) return 0;
+  // Sort by length descending so longer strings come first
+  const sorted = [...new Set(norms)].sort((a,b) => b.length - a.length);
+  const canonical = [];
+  for (const loc of sorted) {
+    // Check if this loc is a suffix of any already-canonical entry
+    // i.e. "вишневогорский массив, ..." is suffix of "вишневые горы, вишневогорский массив, ..."
+    const isSubsumed = canonical.some(c => c.endsWith(loc) || c === loc);
+    if (!isSubsumed) canonical.push(loc);
+  }
+  return canonical.length;
+}
+
+function normalizeElements(elements) {
+  // Replace standalone R and E with REE group label
+  const out = elements.filter(e => e !== 'R' && e !== 'E');
+  if (elements.includes('R') || elements.includes('E')) {
+    if (!out.includes('REE')) out.push('REE');
+  }
+  return out;
+}
+
+// Mindat URLs
+function mindatSearchUrl(x) { return `https://www.mindat.org/search.php?search=${encodeURIComponent(x.ima_name||x.name_ru||'')}`; }
+function mindatIdUrl(id) {
+  // Try to parse numeric ID from strings like "1234" or "M-1234" or "1234-A"
+  if (!id) return null;
+  const match = String(id).match(/\d+/);
+  if (match) return `https://www.mindat.org/min-${match[0]}.html`;
+  return null;
+}
+
+// ============================================================
+// FILTER STATE
+// ============================================================
+function getFilterEls() {
+  return {
+    cls_d: el('fClass_d'), cls_m: el('fClass_m'),
+    c_d: el('fCountry_d'), c_m: el('fCountry_m'),
+    l_d: el('fLocality_d'), l_m: el('fLocality_m'),
+    e_d: el('fEl_d'), e_m: el('fEl_m'),
+    s_d: el('sort_d'), s_m: el('sort_m')
+  };
+}
+function getCurrentFilters() {
+  const fd = getFilterEls();
+  return {
+    fClass: (fd.cls_m?.value) || (fd.cls_d?.value) || '',
+    fCountry: (fd.c_m?.value) || (fd.c_d?.value) || '',
+    fLocality: (fd.l_m?.value) || (fd.l_d?.value) || '',
+    fEl: (fd.e_m?.value) || (fd.e_d?.value) || '',
+    sort: (fd.s_m?.value) || (fd.s_d?.value) || 'name'
+  };
+}
+function activeFiltersCount() {
+  const f = getCurrentFilters();
+  return [f.fClass, f.fCountry, f.fLocality, f.fEl].filter(Boolean).length + (state.decadeFilter != null ? 1 : 0);
+}
+
+// ============================================================
+// ACTIVE FILTER TAGS
+// ============================================================
+function updateActiveTags() {
+  const container = el('activeTags'); container.innerHTML = '';
+  const f = getCurrentFilters();
+  const fd = getFilterEls();
+  const tags = [
+    { val: f.fClass, label: f.fClass, clear: () => { if(fd.cls_d) fd.cls_d.value=''; if(fd.cls_m) fd.cls_m.value=''; } },
+    { val: f.fCountry, label: f.fCountry, clear: () => { if(fd.c_d) fd.c_d.value=''; if(fd.c_m) fd.c_m.value=''; } },
+    { val: f.fLocality, label: f.fLocality, clear: () => { if(fd.l_d) fd.l_d.value=''; if(fd.l_m) fd.l_m.value=''; } },
+    { val: f.fEl, label: `Элемент: ${f.fEl}`, clear: () => { if(fd.e_d) fd.e_d.value=''; if(fd.e_m) fd.e_m.value=''; } },
+    state.decadeFilter != null ? { val: true, label: `${state.decadeFilter}–${state.decadeFilter+9}`, clear: () => { state.decadeFilter = null; } } : null,
+  ].filter(Boolean);
+  tags.filter(t=>t.val).forEach(t => {
+    const tag = document.createElement('span');
+    tag.className = 'filter-tag';
+    tag.innerHTML = `${t.label} <button title="Убрать">✕</button>`;
+    tag.querySelector('button').onclick = () => { t.clear(); applyFilters(); };
+    container.appendChild(tag);
+  });
+  el('activeFiltersBadge').textContent = String(activeFiltersCount());
+}
+
+// ============================================================
+// SUMMARY
+// ============================================================
+function updateSummary(list) {
+  const countries=new Set(), localities=new Set();
+  let totalCost=0;
+  list.forEach(x => {
+    if (x.country) countries.add(x.country);
+    if (x.locality) localities.add(x.locality);
+    if (x.cost != null && !isNaN(x.cost)) totalCost += x.cost;
+  });
+  el('sCount').textContent = fmtInt(list.length);
+  el('sCountries').textContent = fmtInt(countries.size);
+  el('sLocalities').textContent = fmtInt(countUniqueLocalities(list));
+  el('sTotalCost').textContent = state.costUnlocked ? fmtMoney(totalCost) : '••••••';
+  const icon = el('sTotalCostIcon');
+  if (icon) icon.style.display = state.costUnlocked ? '' : 'none';
+  el('countLabel').textContent = `${fmtInt(list.length)} из ${fmtInt(state.data.length)} образцов`;
+}
+
+// ============================================================
+// VISUALIZATIONS
+// ============================================================
+function groupByKey(list, key) {
+  const m = new Map();
+  list.forEach(x => { const k = x[key]||'—'; m.set(k,(m.get(k)||0)+1); });
+  return [...m.entries()].filter(([k])=>k!=='—').sort((a,b)=>b[1]-a[1]);
+}
+
+function renderViz(list) {
+  const body = el('vizBody'); body.innerHTML='';
+  const viz = state.currentViz;
+
+  if (viz === 'classes') {
+    const grouped = groupByKey(list, 'class').slice(0, 14);
+    const max = grouped.length ? grouped[0][1] : 1;
+    grouped.forEach(([cls, cnt]) => {
+      const accent = cardAccent(cls);
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = `
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <div class="text-sm font-medium text-stone-800" style="line-height:1.3">${cls}</div>
+          <div class="mono text-xs text-stone-500">${fmtInt(cnt)}</div>
+        </div>
+        <div class="h-2 rounded-full bg-stone-100 overflow-hidden">
+          <div class="bar-fill" style="width:${Math.max(5, Math.round(cnt/max*100))}%; background:${accent}; opacity:0.7;"></div>
+        </div>`;
+      row.onclick = () => { const fd=getFilterEls(); if(fd.cls_d) fd.cls_d.value=cls; if(fd.cls_m) fd.cls_m.value=cls; applyFilters(); window.scrollTo({top:0,behavior:'smooth'}); };
+      body.appendChild(row);
+    });
+
+  } else if (viz === 'countries') {
+    const grouped = groupByKey(list, 'country').slice(0, 20);
+    const max = grouped.length ? grouped[0][1] : 1;
+    grouped.forEach(([country, cnt]) => {
+      const flag = countryFlag(country) || '🌍';
+      const row = document.createElement('div');
+      row.className = 'country-row';
+      row.innerHTML = `
+        <span class="country-flag">${flag}</span>
+        <span class="text-sm font-medium text-stone-800 w-32 truncate">${country}</span>
+        <div class="country-bar-wrap"><div class="country-bar-fill" style="width:${Math.max(5, Math.round(cnt/max*100))}%"></div></div>
+        <span class="mono text-xs text-stone-500 w-8 text-right">${fmtInt(cnt)}</span>`;
+      row.onclick = () => { const fd=getFilterEls(); if(fd.c_d) fd.c_d.value=country; if(fd.c_m) fd.c_m.value=country; applyFilters(); window.scrollTo({top:0,behavior:'smooth'}); };
+      body.appendChild(row);
+    });
+
+  } else if (viz === 'elements') {
+    const elCounts = new Map();
+    list.forEach(x => normalizeElements(x.elements).forEach(e => elCounts.set(e, (elCounts.get(e)||0)+1)));
+    const sorted = [...elCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,20);
+    const max = sorted.length ? sorted[0][1] : 1;
+    sorted.forEach(([elem, cnt]) => {
+      const pct = Math.max(15, Math.round(cnt/max*100));
+      const div = document.createElement('div');
+      div.className = 'el-bar';
+      div.style.cursor = 'pointer';
+      div.innerHTML = `
+        <div class="el-bar-fill" style="width:${pct}%"></div>
+        <span class="el-bar-label">${elem}</span>
+        <span class="el-bar-count">${fmtInt(cnt)}</span>`;
+      div.onclick = () => { const fd=getFilterEls(); if(fd.e_d) fd.e_d.value=elem; if(fd.e_m) fd.e_m.value=elem; applyFilters(); window.scrollTo({top:0,behavior:'smooth'}); };
+      body.appendChild(div);
+    });
+
+  } else if (viz === 'cost') {
+    if (!state.costUnlocked) {
+      body.innerHTML = '<div class="text-sm text-stone-400 text-center py-6">🔒 Включите отображение стоимости, чтобы увидеть эту визуализацию</div>';
+      return;
+    }
+    // Cost distribution by class
+    const classCost = new Map();
+    const classCount = new Map();
+    const classCostArr = new Map(); // for median
+    list.forEach(x => {
+      if (x.cost == null || isNaN(x.cost) || !x.class) return;
+      const k = x.class;
+      classCost.set(k, (classCost.get(k)||0) + x.cost);
+      classCount.set(k, (classCount.get(k)||0) + 1);
+      if (!classCostArr.has(k)) classCostArr.set(k, []);
+      classCostArr.get(k).push(x.cost);
+    });
+    if (classCost.size === 0) {
+      body.innerHTML = '<div class="text-sm text-stone-400 text-center py-6">Нет данных о стоимости в текущей выборке</div>';
+      return;
+    }
+    const sorted = [...classCost.entries()].sort((a,b)=>b[1]-a[1]).slice(0, 15);
+    const maxCost = sorted[0][1];
+    // Total and median
+    const total = [...classCost.values()].reduce((a,b)=>a+b,0);
+    const allCostValues = list.filter(x=>x.cost!=null&&!isNaN(x.cost)).map(x=>x.cost).sort((a,b)=>a-b);
+    const median = allCostValues.length ? (allCostValues.length%2===0 ? (allCostValues[allCostValues.length/2-1]+allCostValues[allCostValues.length/2])/2 : allCostValues[Math.floor(allCostValues.length/2)]) : null;
+    const globalAvg = allCostValues.length ? Math.round(allCostValues.reduce((a,b)=>a+b,0)/allCostValues.length) : null;
+    const totalDiv = document.createElement('div');
+    totalDiv.className = 'mb-3 flex gap-4 flex-wrap';
+    totalDiv.innerHTML = `
+      <span class="text-xs text-stone-500">Суммарно: <span class="font-semibold text-stone-800">${fmtMoney(total)} ₽</span></span>
+      ${globalAvg!=null ? `<span class="text-xs text-stone-500">Среднее: <span class="font-semibold text-stone-800">${fmtMoney(globalAvg)} ₽</span></span>` : ''}
+      ${median!=null ? `<span class="text-xs text-stone-500">Медиана: <span class="font-semibold text-stone-800">${fmtMoney(median)} ₽</span></span>` : ''}
+    `;
+    body.appendChild(totalDiv);
+    sorted.forEach(([cls, sum]) => {
+      const accent = cardAccent(cls);
+      const cnt = classCount.get(cls)||0;
+      const avg = cnt ? Math.round(sum/cnt) : 0;
+      const arr = (classCostArr.get(cls)||[]).sort((a,b)=>a-b);
+      const med = arr.length ? (arr.length%2===0 ? (arr[arr.length/2-1]+arr[arr.length/2])/2 : arr[Math.floor(arr.length/2)]) : null;
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = `
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <div class="text-sm font-medium text-stone-800" style="line-height:1.3">${cls}</div>
+          <div class="text-xs text-stone-500" style="white-space:nowrap">${fmtMoney(sum)} ₽ <span class="text-stone-400">ср. ${fmtMoney(avg)} ₽${med!=null?' · мед. '+fmtMoney(med)+' ₽':''}</span></div>
+        </div>
+        <div class="h-2 rounded-full bg-stone-100 overflow-hidden">
+          <div class="bar-fill" style="width:${Math.max(4, Math.round(sum/maxCost*100))}%; background:${accent}; opacity:0.75;"></div>
+        </div>`;
+      row.onclick = () => { const fd=getFilterEls(); if(fd.cls_d) fd.cls_d.value=cls; if(fd.cls_m) fd.cls_m.value=cls; applyFilters(); window.scrollTo({top:0,behavior:'smooth'}); };
+      body.appendChild(row);
+    });
+
+  } else if (viz === 'timeline') {
+    const decades = new Map();
+    list.forEach(x => {
+      if (!x.discovery_year) return;
+      const yr = parseInt(x.discovery_year);
+      if (isNaN(yr) || yr < 1700 || yr > 2030) return;
+      const dec = Math.floor(yr / 10) * 10;
+      decades.set(dec, (decades.get(dec)||0)+1);
+    });
+    if (decades.size === 0) {
+      body.innerHTML = '<div class="text-sm text-stone-400 text-center py-4">Нет данных о годах открытия в текущей выборке</div>';
+      return;
+    }
+    const sorted = [...decades.entries()].sort((a,b)=>a[0]-b[0]);
+    const max = Math.max(...sorted.map(([,c])=>c));
+    const active = state.decadeFilter;
+    sorted.forEach(([dec, cnt]) => {
+      const isActive = active === dec;
+      const row = document.createElement('div');
+      row.className = 'timeline-row';
+      row.style.cursor = 'pointer';
+      row.style.borderRadius = '8px';
+      row.style.padding = '3px 6px';
+      row.style.transition = 'background 0.12s';
+      if (isActive) row.style.background = '#f0ede8';
+      row.addEventListener('mouseenter', () => { if (!isActive) row.style.background = '#f5f2ed'; });
+      row.addEventListener('mouseleave', () => { if (!isActive) row.style.background = ''; });
+      const pct = Math.max(6, Math.round(cnt/max*100));
+      const fillColor = isActive ? 'var(--amber)' : 'linear-gradient(90deg, var(--pyrite), var(--amber))';
+      row.innerHTML = `
+        <span style="font-size:0.72rem;color:${isActive?'var(--stone)':'#78716c'};width:3.5rem;flex-shrink:0;font-variant-numeric:tabular-nums">${dec}–${dec+9}</span>
+        <div class="timeline-bar-wrap">
+          <div class="timeline-bar-fill" style="width:${pct}%;background:${fillColor};opacity:${isActive?1:0.65}"></div>
+        </div>
+        <span style="font-size:0.72rem;color:#a8a29e;width:1.8rem;text-align:right;flex-shrink:0">${cnt}</span>
+        ${isActive ? `<span style="font-size:0.65rem;color:var(--amber);margin-left:4px;flex-shrink:0">✕</span>` : ''}`;
+      row.addEventListener('click', () => {
+        state.decadeFilter = isActive ? null : dec;
+        applyFilters();
+      });
+      body.appendChild(row);
+    });
+    if (active !== null && active !== undefined) {
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:0.72rem;color:#a8a29e;margin-top:8px;padding-left:6px';
+      note.textContent = `Фильтр: ${active}–${active+9} · нажмите ещё раз, чтобы снять`;
+      body.appendChild(note);
+    }
+  } // end renderViz
+}
+
+// ============================================================
+// FILTER & SORT
+// ============================================================
+function applyFilters() {
+  const q = norm(el('q').value);
+  const f = getCurrentFilters();
+
+  let out = state.data.filter(x => {
+    if (f.fClass && x.class !== f.fClass) return false;
+    if (f.fCountry && x.country !== f.fCountry) return false;
+    if (f.fLocality && x.locality !== f.fLocality) return false;
+    if (f.fEl && !normalizeElements(x.elements).includes(f.fEl)) return false;
+    if (state.decadeFilter != null) {
+      const yr = parseInt(x.discovery_year);
+      if (isNaN(yr) || Math.floor(yr/10)*10 !== state.decadeFilter) return false;
+    }
+    if (!q) return true;
+    const blob = [x.id, x.name_ru, x.name_other, x.ima_name, x.abbr, x.class, x.formula_text, x.locality, x.country, x.syngony].map(norm).join(' | ');
+    return blob.includes(q);
+  });
+
+  const byStr = k => (a,b) => (a[k]||'').localeCompare(b[k]||'','ru');
+  const byNum = (k,dir) => (a,b) => ((a[k]==null?-Infinity:a[k])-(b[k]==null?-Infinity:b[k]))*dir;
+
+  if (f.sort==='name') out.sort(byStr('name_ru'));
+  else if (f.sort==='cost_desc') out.sort(byNum('cost',-1));
+  else if (f.sort==='cost_asc') out.sort(byNum('cost',1));
+  else if (f.sort==='discovery_asc') out.sort((a,b)=>(parseInt(a.discovery_year)||9999)-(parseInt(b.discovery_year)||9999));
+  else if (f.sort==='discovery_desc') out.sort((a,b)=>(parseInt(b.discovery_year)||0)-(parseInt(a.discovery_year)||0));
+  else if (f.sort==='class_custom') out.sort((a,b) => { const ra=classSortKey(a.class), rb=classSortKey(b.class); return ra!==rb ? ra-rb : (a.class||'').localeCompare(b.class||'','ru'); });
+  else if (f.sort==='country_count') out.sort((a,b) => { const ca=state.countryCounts.get(a.country||'')||0, cb=state.countryCounts.get(b.country||'')||0; return cb!==ca ? cb-ca : (a.country||'').localeCompare(b.country||'','ru'); });
+
+  state.filtered = out;
+  state.page = 0;
+  updateSummary(out);
+  renderViz(out);
+  updateActiveTags();
+  renderCards(true);
+}
+
+// ============================================================
+// CARDS
+// ============================================================
+function cardHtml(x) {
+  const title = x.name_ru || x.ima_name || '—';
+  const subtitle = (x.ima_name && x.ima_name !== title) ? x.ima_name : '';
+  const formula = x.formula_html || x.formula_text || '';
+  const cost = (x.cost != null && !isNaN(x.cost)) ? (state.costUnlocked ? fmtMoney(x.cost) + ' ₽' : '••••') : '—';
+  const accent = cardAccent(x.class);
+  const bg = cardBg(x.class);
+  const digit = classDigit(x.class);
+
+  // Class digit badge
+  const digitLabel = digit !== '0' ? `<span class="class-badge" style="background:${accent}15; color:${accent}; border:1px solid ${accent}30;">${x.class || '—'}</span>` : '';
+
+  return `
+  <div class="mineral-card p-4" style="background:${bg}; --card-accent:${accent}; --card-id-color:${accent}; --card-id-bg:${accent}18; --card-id-border:${accent}38;" data-id="${x.id||''}">
+    <div class="flex items-start justify-between gap-2 mb-3">
+      <div class="flex-1 min-w-0">
+        <div class="text-base font-semibold text-stone-900 leading-snug">${title}</div>
+        ${subtitle ? `<div class="text-sm text-stone-500 mt-0.5">${subtitle}</div>` : ''}
+      </div>
+      ${x.id ? `<span class="card-id flex-shrink-0">${x.id}</span>` : ''}
+    </div>
+
+    <div class="space-y-1.5 text-sm mb-3">
+      ${x.name_other ? `<div class="text-stone-600 italic text-xs">${x.name_other}</div>` : ''}
+      ${x.class ? `<div>${digitLabel}</div>` : ''}
+      ${x.country ? `<div class="flex gap-1.5"><span class="text-stone-400">Страна</span><span class="text-stone-700">${countryFlag(x.country) + ' ' + x.country}</span></div>` : ''}
+      ${x.locality ? `<div class="flex gap-1.5"><span class="text-stone-400 flex-shrink-0">Месторождение</span><span class="text-stone-700">${x.locality}</span></div>` : ''}
+      ${formula ? `<div class="flex gap-1.5"><span class="text-stone-400">Формула</span><span class="formula text-stone-700">${formula}</span></div>` : ''}
+      ${x.syngony ? `<div class="flex gap-1.5"><span class="text-stone-400">Сингония</span><span class="text-stone-700">${x.syngony}</span></div>` : ''}
+      ${x.discovery_year ? `<div class="flex gap-1.5"><span class="text-stone-400">Открыт</span><span class="text-stone-700">${x.discovery_year}</span></div>` : ''}
+    </div>
+
+    <div class="flex items-center justify-between gap-2 pt-2 border-t border-black/5">
+      <div class="text-sm">
+        <span class="text-stone-400">Стоимость</span>
+        <span class="cost-value font-semibold text-stone-800 ml-1.5">${cost}</span>
+      </div>
+      <span class="text-xs text-stone-400 hover:text-stone-600 transition-colors">Подробнее →</span>
+    </div>
+
+    ${(x.elements && x.elements.length) ? `
+      <div class="mt-2 flex flex-wrap gap-1 pt-2">
+        ${normalizeElements(x.elements).slice(0,10).map(e=>`<button class="el-chip" data-el="${e}">${e}</button>`).join('')}
+        ${normalizeElements(x.elements).length > 10 ? `<span class="el-chip" style="cursor:default;background:#f8f6f2">+${normalizeElements(x.elements).length-10}</span>` : ''}
+      </div>` : ''}
+  </div>`;
+}
+
+function renderCards(reset=false) {
+  const cards = el('cards');
+  if (reset) cards.innerHTML = '';
+  const start = state.page * state.pageSize;
+  const end = Math.min(state.filtered.length, start + state.pageSize);
+  const slice = state.filtered.slice(start, end);
+
+  slice.forEach(x => {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = cardHtml(x);
+    const card = wrapper.firstElementChild;
+
+    // Card click → detail modal
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.el-chip') || e.target.closest('.card-id')) return;
+      openDetailModal(x);
+    });
+
+    // Element chips
+    card.querySelectorAll('.el-chip[data-el]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fd = getFilterEls();
+        if (fd.e_d) fd.e_d.value = btn.dataset.el;
+        if (fd.e_m) fd.e_m.value = btn.dataset.el;
+        applyFilters();
+        window.scrollTo({top:0,behavior:'smooth'});
+      });
+    });
+
+    cards.appendChild(card);
+  });
+
+  el('more').classList.toggle('hidden', end >= state.filtered.length);
+  state.page += 1;
+}
+
+// ============================================================
+// DETAIL MODAL
+// ============================================================
+function openDetailModal(x) {
+  state.openItem = x;
+  const title = x.name_ru || x.ima_name || '—';
+  const subtitle = (x.ima_name && x.ima_name !== title) ? x.ima_name : (x.name_other || '');
+  el('mId').textContent = x.id || '';
+  el('mName').textContent = title;
+  el('mSubname').textContent = subtitle;
+
+  const searchUrl = mindatSearchUrl(x);
+  const formula = x.formula_html || x.formula_text || '—';
+  const cost = (x.cost!=null && !isNaN(x.cost)) ? (state.costUnlocked ? fmtMoney(x.cost) + ' ₽' : '••••••') : '—';
+
+  const rows = [
+    x.class && { k: 'Класс', v: x.class },
+    x.locality && { k: 'Месторождение', v: x.locality },
+    x.formula_text && { k: 'Формула', v: `<span class="formula">${formula}</span>` },
+    x.syngony && { k: 'Сингония', v: x.syngony },
+    x.discovery_year && { k: 'Год открытия', v: x.discovery_year },
+    { k: 'Стоимость', v: `<span class="font-semibold">${cost}</span>` },
+    (x.elements && x.elements.length) && { k: 'Элементы', v: normalizeElements(x.elements).map(e=>`<span class="el-chip" style="cursor:default;">${e}</span>`).join(' ') }
+  ].filter(Boolean);
+
+  el('mBody').innerHTML = `<div id="mPhotoSection"></div>
+    <div class="divide-y divide-stone-100 mb-5">
+      ${rows.map(r => `
+        <div class="detail-row">
+          <div class="detail-key">${r.k}</div>
+          <div class="detail-val">${r.v}</div>
+        </div>`).join('')}
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="${searchUrl}" target="_blank" rel="noreferrer" class="mindat-link">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
+        Mindat
+      </a>
+    </div>`;
+
+  el('detailModal').classList.remove('hidden');
+  el('detailModal').classList.add('flex');
+
+  if (x.id) renderPhotoSection(x, el('mPhotoSection'));
+}
+function closeDetailModal() { el('detailModal').classList.add('hidden'); el('detailModal').classList.remove('flex'); state.openItem=null; }
+
+// ============================================================
+// ALL-CLASSES MODAL
+// ============================================================
+function groupByClass(list) {
+  const m = new Map();
+  list.forEach(x => { const k=x.class||'—'; m.set(k,(m.get(k)||0)+1); });
+  return [...m.entries()].filter(([k])=>k!=='—').sort((a,b)=>b[1]-a[1]);
+}
+function openAllClassesModal(list) {
+  const grouped = groupByClass(list);
+  const body = el('modalBody'); body.innerHTML='';
+  const grid = document.createElement('div');
+  grid.className='grid grid-cols-1 sm:grid-cols-2 gap-2';
+  grouped.forEach(([cls,cnt]) => {
+    const accent = cardAccent(cls);
+    const b = document.createElement('button');
+    b.className='p-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-left transition-colors';
+    b.innerHTML=`<div class="font-medium text-stone-800">${cls}</div><div class="text-xs text-stone-400 mono">${fmtInt(cnt)} образцов</div>`;
+    b.style.borderLeft=`3px solid ${accent}`;
+    b.onclick=()=>{ const fd=getFilterEls(); if(fd.cls_d) fd.cls_d.value=cls; if(fd.cls_m) fd.cls_m.value=cls; closeAllClassesModal(); applyFilters(); window.scrollTo({top:0,behavior:'smooth'}); };
+    grid.appendChild(b);
+  });
+  body.appendChild(grid);
+  el('modal').classList.remove('hidden'); el('modal').classList.add('flex');
+}
+function closeAllClassesModal(){ el('modal').classList.add('hidden'); el('modal').classList.remove('flex'); }
+
+// ============================================================
+// SHEET
+// ============================================================
+function openSheet() { el('sheetBackdrop').classList.remove('hidden'); el('sheet').classList.replace('sheet-closed','sheet-open'); document.body.style.overflow='hidden'; }
+function closeSheet() { el('sheetBackdrop').classList.add('hidden'); el('sheet').classList.replace('sheet-open','sheet-closed'); document.body.style.overflow=''; }
+
+// ============================================================
+// RESET
+// ============================================================
+function resetAll() {
+  el('q').value='';
+  state.decadeFilter = null;
+  [['fClass_m','fClass_d'],['fCountry_m','fCountry_d'],['fLocality_m','fLocality_d'],['fEl_m','fEl_d']].forEach(([a,b])=>{ if(el(a)) el(a).value=''; if(el(b)) el(b).value=''; });
+  if(el('sort_m')) el('sort_m').value='name'; if(el('sort_d')) el('sort_d').value='name';
+  applyFilters();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  // Show loading state
+  el('sCount').textContent = '…';
+
+  // Load from Supabase
+  let rows;
+  try {
+    rows = await sbFetchAll();
+  } catch(e) {
+    console.error('Supabase fetch error:', e);
+    el('sCount').textContent = 'Ошибка загрузки';
+    return;
+  }
+  console.log('Loaded rows:', rows.length, 'first:', rows[0]);
+  if (!rows.length) { el('sCount').textContent = '0'; return; }
+  // Each row: { id, data: {...mineral fields}, photo_url }
+  state.data = rows.map(r => {
+    // When selecting data->field, Supabase returns fields at top level
+    // id and photo_url are direct columns, rest come from jsonb extraction
+    return {
+      id:             r.id,
+      photo_url:      r.photo_url || null,
+      name_ru:        r.name_ru,
+      name_other:     r.name_other,
+      ima_name:       r.ima_name,
+      abbr:           r.abbr,
+      class:          r.class,
+      formula_html:   r.formula_html,
+      formula_text:   r.formula_text,
+      elements:       r.elements,
+      syngony:        r.syngony,
+      locality:       r.locality,
+      country:        r.country,
+      country_code:   r.country_code,
+      discovery_year: r.discovery_year,
+      cost:           r.cost != null ? Number(r.cost) : null,
+      ue_band:        r.ue_band,
+    };
+  });
+
+  const cc = new Map();
+  state.data.forEach(x=>{ const c=x.country||''; if(c) cc.set(c,(cc.get(c)||0)+1); });
+  state.countryCounts = cc;
+
+  const classes = sortClassesForFilter(uniqSorted(state.data.map(x=>x.class)));
+  const countries = uniqSorted(state.data.map(x=>x.country));
+  const localities = uniqSorted(state.data.map(x=>x.locality));
+  const allEls = uniqSorted(state.data.flatMap(x=>normalizeElements(x.elements)));
+
+  ['fClass_d','fClass_m'].forEach(id=>fillSelect(el(id),classes,'Все классы'));
+  ['fCountry_d','fCountry_m'].forEach(id=>fillSelect(el(id),countries,'Все страны'));
+  ['fLocality_d','fLocality_m'].forEach(id=>fillSelect(el(id),localities,'Все месторождения'));
+  ['fEl_d','fEl_m'].forEach(id=>fillSelect(el(id),allEls,'Любой элемент'));
+
+  // Sync desktop↔mobile selects
+  const syncPairs = [['fClass_d','fClass_m'],['fCountry_d','fCountry_m'],['fLocality_d','fLocality_m'],['fEl_d','fEl_m'],['sort_d','sort_m']];
+  syncPairs.forEach(([a,b])=>{
+    el(a)?.addEventListener('change',()=>{ if(el(b)) el(b).value=el(a).value; applyFilters(); });
+    el(b)?.addEventListener('change',()=>{ if(el(a)) el(a).value=el(b).value; applyFilters(); });
+  });
+
+  el('q').addEventListener('input', ()=>applyFilters());
+  el('more').addEventListener('click', ()=>renderCards(false));
+  el('reset').addEventListener('click', resetAll);
+  el('reset_m').addEventListener('click', resetAll);
+  el('apply_m').addEventListener('click', ()=>{ applyFilters(); closeSheet(); });
+  el('toggleCosts').addEventListener('click', ()=>{ if(state.costUnlocked) lockCosts(); else openAuth(); });
+
+  el('showAllClasses').addEventListener('click', ()=>openAllClassesModal(state.filtered));
+  el('closeModal').addEventListener('click', closeAllClassesModal);
+  el('modal').addEventListener('click', e=>{ if(e.target===el('modal')) closeAllClassesModal(); });
+
+  el('closeDetail').addEventListener('click', closeDetailModal);
+  el('detailModal').addEventListener('click', e=>{ if(e.target===el('detailModal')) closeDetailModal(); });
+
+  el('openFilters').addEventListener('click', openSheet);
+  el('closeFilters').addEventListener('click', closeSheet);
+  el('sheetBackdrop').addEventListener('click', closeSheet);
+
+  el('closeAuth').addEventListener('click', closeAuth);
+  el('authCancel').addEventListener('click', closeAuth);
+  el('authSubmit').addEventListener('click', tryUnlock);
+  el('authModal').addEventListener('click', e=>{ if(e.target===el('authModal')) closeAuth(); });
+  el('authPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
+
+  // Viz tabs
+  el('vizTabs').querySelectorAll('.viz-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      el('vizTabs').querySelectorAll('.viz-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      state.currentViz = tab.dataset.viz;
+      el('showAllClasses').style.display = state.currentViz === 'classes' ? '' : 'none';
+      renderViz(state.filtered);
+    });
+  });
+
+  // Scroll to top
+  window.addEventListener('scroll', ()=>{
+    el('scrollTop').classList.toggle('visible', window.scrollY > 400);
+  });
+  el('scrollTop').addEventListener('click', ()=>window.scrollTo({top:0,behavior:'smooth'}));
+
+  // Escape key
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape') { closeDetailModal(); closeAllClassesModal(); closeAuth(); closeSheet(); }
+  });
+
+  updateCostUI();
+  state.filtered = state.data.slice();
+  applyFilters();
+}
+
+init();
+</script>
+</body>
+</html>
