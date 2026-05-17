@@ -782,7 +782,13 @@
       </div>
       <div id="mindmapBody" class="p-4">
         <div id="mindmapPanel"></div>
-        <div class="text-xs text-stone-500 mt-2">Серый — этот образец. Цветные — связанные. Тап по узлу = открыть карточку.</div>
+        <div style="font-size:0.72rem;color:#8a8070;margin-top:8px;display:flex;flex-wrap:wrap;gap:12px">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#8a8070;vertical-align:middle"></span> этот образец</span>
+          <span><span style="display:inline-block;width:18px;height:2px;background:#c8a96e;vertical-align:middle"></span> ручная связь</span>
+          <span><span style="display:inline-block;width:18px;height:2px;background:#7ba8a0;vertical-align:middle"></span> то же месторождение</span>
+          <span><span style="display:inline-block;width:18px;height:2px;background:#a89bb8;vertical-align:middle;border-top:1px dashed #a89bb8"></span> тот же класс + страна</span>
+          <span style="margin-left:auto;color:#9a8f7e">Тап по узлу = открыть карточку</span>
+        </div>
       </div>
     </div>
   </div>
@@ -948,23 +954,49 @@ async function sbFetchLastUpdate() {
 // ============================================================
 const MINDAT_API_KEY = 'add5a7d608d1f674fe787eab11e2ae35';
 async function mindatFetchLocality(localityId) {
-  // Returns { latitude, longitude, txt, country } or null
-  try {
-    const res = await fetch(`https://api.mindat.org/v1/localities/${encodeURIComponent(localityId)}/`, {
-      headers: { 'Authorization': `Token ${MINDAT_API_KEY}` }
-    });
-    if (!res.ok) return null;
-    const j = await res.json();
-    return {
-      lat: j.latitude != null ? Number(j.latitude) : null,
-      lng: j.longitude != null ? Number(j.longitude) : null,
-      txt: j.txt || j.long_name || j.short_name || '',
-      country: j.country || ''
-    };
-  } catch (e) {
-    console.error('Mindat fetch error', e);
-    return null;
+  // Returns { lat, lng, txt, country, error } — error is string when failed
+  const headers = { 'Authorization': `Token ${MINDAT_API_KEY}` };
+  // Endpoint without /v1/ — that prefix doesn't exist in Mindat's API
+  const urls = [
+    `https://api.mindat.org/localities/${encodeURIComponent(localityId)}/`,
+    `https://api.mindat.org/localities/?id=${encodeURIComponent(localityId)}`
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        if (res.status === 404) continue; // try next URL form
+        const body = await res.text().catch(()=>String(res.status));
+        return { error: `HTTP ${res.status}: ${body.slice(0,120)}` };
+      }
+      const j = await res.json();
+      // Locality can come either as object {…} (path style) or as paginated {results:[…]} (query style)
+      const rec = Array.isArray(j) ? j[0] : (j.results && j.results[0]) || j;
+      if (!rec || typeof rec !== 'object') {
+        return { error: 'Ответ Mindat без данных' };
+      }
+      const latRaw = rec.latitude;
+      const lngRaw = rec.longitude;
+      const lat = latRaw != null && latRaw !== '' ? Number(latRaw) : null;
+      const lng = lngRaw != null && lngRaw !== '' ? Number(lngRaw) : null;
+      // Mindat encodes "unknown" as 0,0 (known issue). Treat exact 0,0 as missing.
+      const isMissing = (lat == null || lng == null || isNaN(lat) || isNaN(lng))
+                     || (Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001);
+      return {
+        lat: isMissing ? null : lat,
+        lng: isMissing ? null : lng,
+        txt: rec.txt || rec.long_name || rec.short_name || '',
+        country: rec.country || '',
+        raw: rec,
+        zeroCoords: isMissing && (lat === 0 || lng === 0)
+      };
+    } catch (e) {
+      // Likely CORS or network — try next URL or fall through
+      console.warn('Mindat fetch error', url, e);
+      // Don't return immediately — try the other URL form
+    }
   }
+  return { error: 'Не удалось подключиться к Mindat (возможно, CORS заблокирован)' };
 }
 
 async function sbUploadPhoto(file, mineralId) {
@@ -1233,25 +1265,61 @@ function renderMindmap(center) {
   if (!panel) return;
   panel.innerHTML = '';
 
-  // Build graph: center node + related (manual + auto-from-same-locality)
-  const relatedIds = new Set(Array.isArray(center.related_ids) ? center.related_ids : []);
-  // Auto: same locality (up to 8)
-  if (center.locality) {
-    const auto = state.data.filter(o => o.id !== center.id && o.locality === center.locality).slice(0, 8);
-    auto.forEach(o => relatedIds.add(o.id));
-  }
-  const related = state.data.filter(o => relatedIds.has(o.id));
+  // Build graph with typed links:
+  //  type 'manual'   — explicit relation in related_ids
+  //  type 'locality' — same locality
+  //  type 'class'    — same class + country (fallback when no locality match)
+  const manualIds = new Set(Array.isArray(center.related_ids) ? center.related_ids : []);
+  const linksByType = []; // { id, type }
+  const seen = new Set();
 
-  if (related.length === 0) {
-    panel.innerHTML = `<div class="text-sm text-stone-500 text-center" style="padding-top:200px">У этого образца пока нет связанных. <br/>Можно добавить связи через кнопку «Связать» в карточке.</div>`;
+  // 1. Manual relations
+  state.data.forEach(o => {
+    if (manualIds.has(o.id) && o.id !== center.id && !seen.has(o.id)) {
+      linksByType.push({ id: o.id, type: 'manual', obj: o });
+      seen.add(o.id);
+    }
+  });
+  // 2. Same locality (skip if no locality)
+  if (center.locality) {
+    state.data.filter(o => o.id !== center.id && !seen.has(o.id) && o.locality === center.locality)
+      .slice(0, 10).forEach(o => {
+        linksByType.push({ id: o.id, type: 'locality', obj: o });
+        seen.add(o.id);
+      });
+  }
+  // 3. Fallback: same class + country
+  if (linksByType.length === 0 && center.class && center.country) {
+    state.data.filter(o => o.id !== center.id && !seen.has(o.id) && o.class === center.class && o.country === center.country)
+      .slice(0, 8).forEach(o => {
+        linksByType.push({ id: o.id, type: 'class', obj: o });
+        seen.add(o.id);
+      });
+  }
+
+  if (linksByType.length === 0) {
+    const hint = !center.locality
+      ? 'у этого образца нет привязки к месторождению, других в той же стране и классе тоже не нашлось.'
+      : `других образцов с месторождением «${escapeHtml(center.locality)}» в коллекции нет, и в том же классе/стране тоже.`;
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center">
+        <div>
+          <div style="font-size:0.95rem;color:var(--stone);margin-bottom:8px">У образца «${escapeHtml(center.name_ru || '—')}» связей не найдено</div>
+          <div style="font-size:0.8rem;color:#8a8070;max-width:380px;margin:0 auto">Автоматически ищутся: образцы из того же месторождения; если их нет — из того же класса и страны. Сейчас ${hint}</div>
+        </div>
+      </div>`;
     return;
   }
 
+  // Build d3 graph
+  const typeColors = { manual: '#c8a96e', locality: '#7ba8a0', class: '#a89bb8' };
+  const typeLabels = { manual: 'ручная связь', locality: 'то же месторождение', class: 'тот же класс + страна' };
+
   const nodes = [
     { id: center.id, name: center.name_ru || '—', isCenter: true, accent: cardAccent(center.class), obj: center },
-    ...related.map(o => ({ id: o.id, name: o.name_ru || '—', isCenter: false, accent: cardAccent(o.class), obj: o }))
+    ...linksByType.map(l => ({ id: l.id, name: l.obj.name_ru || '—', isCenter: false, accent: cardAccent(l.obj.class), type: l.type, obj: l.obj }))
   ];
-  const links = related.map(o => ({ source: center.id, target: o.id }));
+  const links = linksByType.map(l => ({ source: center.id, target: l.id, type: l.type }));
 
   const w = panel.clientWidth, h = panel.clientHeight;
   const svg = d3.select(panel).append('svg')
@@ -1265,7 +1333,9 @@ function renderMindmap(center) {
     .force('collide', d3.forceCollide().radius(40));
 
   const link = svg.append('g').selectAll('line').data(links).join('line')
-    .attr('class', 'mindmap-link');
+    .attr('class', 'mindmap-link')
+    .attr('stroke', d => typeColors[d.type] || '#c8bfaf')
+    .attr('stroke-dasharray', d => d.type === 'class' ? '3,3' : null);
 
   const node = svg.append('g').selectAll('g').data(nodes).join('g')
     .style('cursor', 'pointer')
@@ -1285,6 +1355,9 @@ function renderMindmap(center) {
     .attr('text-anchor', 'middle')
     .attr('dy', d => d.isCenter ? 40 : 32)
     .text(d => d.name.length > 16 ? d.name.slice(0,14) + '…' : d.name);
+
+  // tooltip on hover
+  node.append('title').text(d => d.isCenter ? d.name : `${d.name} — ${typeLabels[d.type] || ''}`);
 
   node.on('click', (e, d) => {
     if (d.isCenter) return;
@@ -2093,27 +2166,62 @@ function renderLocalitySection(x, container) {
   if (!x.id) return;
 
   const sec = document.createElement('div');
-  sec.style.cssText = 'margin-bottom:16px;padding:12px;border:1px solid #e2ddd5;border-radius:12px;background:#faf9f6';
+  sec.style.cssText = 'margin-bottom:12px;padding:12px;border:1px solid #e2ddd5;border-radius:12px;background:#faf9f6';
 
   const hasCoords = x.locality_lat != null && x.locality_lng != null;
   const mindatId = x.mindat_locality_id || '';
+  const mindatLink = mindatId ? `https://www.mindat.org/loc-${mindatId}.html` : null;
 
   sec.innerHTML = `
     <div style="font-size:0.78rem;font-weight:600;color:var(--stone);margin-bottom:8px;display:flex;align-items:center;gap:6px">
       <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0L6.343 16.657a8 8 0 1111.314 0z"/><circle cx="12" cy="11" r="3" stroke-width="2"/></svg>
       Геопривязка
     </div>
-    ${hasCoords ? `<div style="font-size:0.75rem;color:#6a6050;margin-bottom:6px">📍 ${x.locality_lat.toFixed(4)}, ${x.locality_lng.toFixed(4)}</div>` : `<div style="font-size:0.72rem;color:#9a8f7e;margin-bottom:6px">Координаты не заданы</div>`}
-    ${state.costUnlocked ? `
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <input id="mindatIdInput" placeholder="Mindat locality ID (например, 1234)" value="${mindatId}" inputmode="numeric" pattern="[0-9]*"
-               style="border:1.5px solid #d6d0c6;border-radius:8px;padding:6px 10px;font-size:0.82rem;font-family:ui-monospace,monospace;background:#fff;flex:1;min-width:140px"/>
-        <button id="mindatFetchBtn" style="padding:6px 12px;background:var(--stone);color:var(--amber);border-radius:8px;border:none;font-size:0.78rem;cursor:pointer">Подтянуть</button>
-        ${hasCoords ? `<button id="mindatClearBtn" style="padding:6px 12px;background:#fff;color:#8a8070;border-radius:8px;border:1.5px solid #d6d0c6;font-size:0.78rem;cursor:pointer">Очистить</button>` : ''}
+
+    ${hasCoords ? `
+      <div style="font-size:0.8rem;color:#3d7a5c;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        📍 <span class="formula">${x.locality_lat.toFixed(4)}, ${x.locality_lng.toFixed(4)}</span>
+        <a href="https://www.openstreetmap.org/?mlat=${x.locality_lat}&mlon=${x.locality_lng}&zoom=8" target="_blank" rel="noopener" style="font-size:0.72rem;color:#8a8070;text-decoration:underline">OSM</a>
       </div>
-      <div id="mindatStatus" class="map-coord-status"></div>
-      <div style="font-size:0.7rem;color:#9a8f7e;margin-top:6px">
-        Найти ID на странице локалити в Mindat → URL вида <span class="formula">mindat.org/loc-<b>1234</b>.html</span>
+    ` : `
+      <div style="font-size:0.78rem;color:#9a8f7e;margin-bottom:8px">Координаты не заданы</div>
+    `}
+
+    ${state.costUnlocked ? `
+      <div style="display:flex;flex-direction:column;gap:8px">
+
+        <!-- Mindat ID auto-fetch -->
+        <div>
+          <div style="font-size:0.7rem;color:#6a6050;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">Подтянуть из Mindat</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <input id="mindatIdInput" placeholder="ID локалити" value="${mindatId}" inputmode="numeric" pattern="[0-9]*"
+                   style="border:1.5px solid #d6d0c6;border-radius:8px;padding:6px 10px;font-size:0.82rem;font-family:ui-monospace,monospace;background:#fff;flex:1;min-width:120px"/>
+            <button id="mindatFetchBtn" style="padding:6px 12px;background:var(--stone);color:var(--amber);border-radius:8px;border:none;font-size:0.78rem;cursor:pointer;font-weight:500">Подтянуть</button>
+            ${mindatLink ? `<a href="${mindatLink}" target="_blank" rel="noopener" style="padding:6px 10px;background:#fff;color:#8a8070;border:1.5px solid #d6d0c6;border-radius:8px;font-size:0.72rem;text-decoration:none">↗ Mindat</a>` : ''}
+          </div>
+          <div id="mindatStatus" style="font-size:0.72rem;margin-top:6px;min-height:1em"></div>
+          <div style="font-size:0.7rem;color:#9a8f7e;margin-top:4px">
+            ID — число из URL <span class="formula">mindat.org/loc-<b>21407</b>.html</span>
+          </div>
+        </div>
+
+        <!-- Manual coordinate entry -->
+        <details style="font-size:0.78rem">
+          <summary style="cursor:pointer;color:#6a6050;font-weight:500;padding:6px 0">Ввести координаты вручную</summary>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-top:6px">
+            <input id="manualLatInput" placeholder="Lat (например, -28.4)" value="${hasCoords ? x.locality_lat : ''}" inputmode="decimal"
+                   style="border:1.5px solid #d6d0c6;border-radius:8px;padding:6px 10px;font-size:0.82rem;font-family:ui-monospace,monospace;background:#fff;flex:1;min-width:100px"/>
+            <input id="manualLngInput" placeholder="Lng (например, 27.1)" value="${hasCoords ? x.locality_lng : ''}" inputmode="decimal"
+                   style="border:1.5px solid #d6d0c6;border-radius:8px;padding:6px 10px;font-size:0.82rem;font-family:ui-monospace,monospace;background:#fff;flex:1;min-width:100px"/>
+            <button id="manualSaveBtn" style="padding:6px 12px;background:var(--stone);color:var(--amber);border-radius:8px;border:none;font-size:0.78rem;cursor:pointer;font-weight:500">Сохранить</button>
+          </div>
+        </details>
+
+        ${hasCoords ? `
+        <div style="display:flex;justify-content:flex-end">
+          <button id="mindatClearBtn" style="padding:5px 10px;background:transparent;color:#b8362c;border:none;font-size:0.72rem;cursor:pointer;text-decoration:underline">Очистить координаты</button>
+        </div>
+        ` : ''}
       </div>
     ` : ''}
   `;
@@ -2122,22 +2230,44 @@ function renderLocalitySection(x, container) {
   if (state.costUnlocked) {
     el('mindatFetchBtn').onclick = async () => {
       const id = el('mindatIdInput').value.trim();
-      if (!id) return;
       const status = el('mindatStatus');
-      status.textContent = 'Запрос к Mindat…';
-      status.style.color = '#8a8070';
-      const data = await mindatFetchLocality(id);
-      if (!data || data.lat == null || data.lng == null) {
-        status.textContent = '⚠️ Не удалось получить координаты (проверьте ID)';
+      if (!id) {
+        status.textContent = 'Введите ID';
         status.style.color = '#b8362c';
         return;
       }
+      status.textContent = 'Запрос к Mindat…';
+      status.style.color = '#8a8070';
+      const data = await mindatFetchLocality(id);
+      if (data.error) {
+        status.textContent = `⚠️ ${data.error}`;
+        status.style.color = '#b8362c';
+        return;
+      }
+      if (data.lat == null || data.lng == null) {
+        const why = data.zeroCoords
+          ? 'У этой локалити Mindat вернул 0,0 (фактически — нет координат). Введите вручную ниже.'
+          : 'Mindat не вернул координаты для этого ID. Введите вручную ниже.';
+        status.textContent = `⚠️ ${why}`;
+        status.style.color = '#b8362c';
+        // Save mindat_locality_id anyway (useful as a link)
+        x.mindat_locality_id = parseInt(id);
+        const rec = state.data.find(d => d.id === x.id);
+        if (rec) rec.mindat_locality_id = x.mindat_locality_id;
+        await fetch(`${SB_URL}/rest/v1/minerals?id=eq.${encodeURIComponent(x.id)}`, {
+          method: 'PATCH',
+          headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ mindat_locality_id: x.mindat_locality_id })
+        });
+        return;
+      }
+      // Success
       x.mindat_locality_id = parseInt(id);
       x.locality_lat = data.lat;
       x.locality_lng = data.lng;
       const rec = state.data.find(d => d.id === x.id);
       if (rec) Object.assign(rec, { mindat_locality_id: x.mindat_locality_id, locality_lat: x.locality_lat, locality_lng: x.locality_lng });
-      await fetch(`${SB_URL}/rest/v1/minerals?id=eq.${encodeURIComponent(x.id)}`, {
+      const resp = await fetch(`${SB_URL}/rest/v1/minerals?id=eq.${encodeURIComponent(x.id)}`, {
         method: 'PATCH',
         headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
         body: JSON.stringify({
@@ -2146,22 +2276,55 @@ function renderLocalitySection(x, container) {
           locality_lng: x.locality_lng
         })
       });
+      if (!resp.ok) {
+        status.textContent = `⚠️ Получено, но не удалось сохранить в БД (HTTP ${resp.status})`;
+        status.style.color = '#b8362c';
+        return;
+      }
       status.textContent = `✓ ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)} — сохранено`;
       status.style.color = '#3d7a5c';
-      setTimeout(() => renderLocalitySection(x, container), 800);
+      setTimeout(() => renderLocalitySection(x, container), 1000);
     };
+
+    el('manualSaveBtn').onclick = async () => {
+      const status = el('mindatStatus');
+      const lat = parseFloat(el('manualLatInput').value);
+      const lng = parseFloat(el('manualLngInput').value);
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        status.textContent = '⚠️ Некорректные координаты (lat: -90…90, lng: -180…180)';
+        status.style.color = '#b8362c';
+        return;
+      }
+      x.locality_lat = lat;
+      x.locality_lng = lng;
+      const rec = state.data.find(d => d.id === x.id);
+      if (rec) Object.assign(rec, { locality_lat: lat, locality_lng: lng });
+      const resp = await fetch(`${SB_URL}/rest/v1/minerals?id=eq.${encodeURIComponent(x.id)}`, {
+        method: 'PATCH',
+        headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ locality_lat: lat, locality_lng: lng })
+      });
+      if (!resp.ok) {
+        status.textContent = `⚠️ Не удалось сохранить (HTTP ${resp.status})`;
+        status.style.color = '#b8362c';
+        return;
+      }
+      status.textContent = `✓ ${lat.toFixed(4)}, ${lng.toFixed(4)} — сохранено`;
+      status.style.color = '#3d7a5c';
+      setTimeout(() => renderLocalitySection(x, container), 1000);
+    };
+
     const clearBtn = el('mindatClearBtn');
     if (clearBtn) {
       clearBtn.onclick = async () => {
-        x.mindat_locality_id = null;
         x.locality_lat = null;
         x.locality_lng = null;
         const rec = state.data.find(d => d.id === x.id);
-        if (rec) Object.assign(rec, { mindat_locality_id: null, locality_lat: null, locality_lng: null });
+        if (rec) Object.assign(rec, { locality_lat: null, locality_lng: null });
         await fetch(`${SB_URL}/rest/v1/minerals?id=eq.${encodeURIComponent(x.id)}`, {
           method: 'PATCH',
           headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ mindat_locality_id: null, locality_lat: null, locality_lng: null })
+          body: JSON.stringify({ locality_lat: null, locality_lng: null })
         });
         renderLocalitySection(x, container);
       };
@@ -2172,13 +2335,28 @@ function renderLocalitySection(x, container) {
 function renderMindmapButton(x, container) {
   container.innerHTML = '';
   if (!x.id) return;
+
+  // Count what we'd actually show
+  const manualIds = new Set(Array.isArray(x.related_ids) ? x.related_ids : []);
+  const sameLocality = x.locality ? state.data.filter(o => o.id !== x.id && o.locality === x.locality) : [];
+  const sameClassCountry = (!sameLocality.length && x.class && x.country)
+    ? state.data.filter(o => o.id !== x.id && o.class === x.class && o.country === x.country).slice(0, 8)
+    : [];
+  const totalAuto = sameLocality.length + sameClassCountry.length;
+  const total = manualIds.size + totalAuto;
+
   const btn = document.createElement('button');
-  btn.style.cssText = 'width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:#fff;color:var(--stone);border:1.5px solid #e2ddd5;border-radius:10px;font-size:0.85rem;font-weight:500;cursor:pointer;transition:all 0.15s';
+  btn.style.cssText = 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:#fff;color:var(--stone);border:1.5px solid #e2ddd5;border-radius:10px;font-size:0.85rem;font-weight:500;cursor:pointer;transition:all 0.15s';
   btn.onmouseover = () => { btn.style.background = '#f5f2ed'; };
   btn.onmouseout = () => { btn.style.background = '#fff'; };
   btn.innerHTML = `
-    <svg style="width:16px;height:16px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-    Связи образца (mind map)`;
+    <span style="display:flex;align-items:center;gap:8px">
+      <svg style="width:16px;height:16px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Связи образца
+    </span>
+    <span style="font-size:0.72rem;color:#8a8070">
+      ${total > 0 ? `${total} связ.` : 'нет связей'}
+    </span>`;
   btn.onclick = () => openMindmapModal(x);
   container.appendChild(btn);
 }
