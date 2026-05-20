@@ -228,6 +228,7 @@
       max-height: 90dvh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     .detail-modal::-webkit-scrollbar { width: 6px; }
     .detail-modal::-webkit-scrollbar-track { background: #f5f2ed; }
@@ -238,9 +239,9 @@
     @media (max-width: 640px) {
       #detailModal { padding: 0; align-items: flex-end !important; }
       .detail-modal {
-        max-height: 92dvh;
+        max-height: 96dvh;
         border-radius: 18px 18px 0 0;
-        padding-bottom: env(safe-area-inset-bottom);
+        padding-bottom: max(env(safe-area-inset-bottom), 20px);
         transform: translateY(0);
         transition: transform 0.22s ease;
         width: 100% !important;
@@ -576,10 +577,11 @@
     }
     /* Sheet — explicit max-height */
     #sheet > div {
-      max-height: 88dvh;
+      max-height: 92dvh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+      overscroll-behavior: contain;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
     }
     @keyframes shimmer {
       0% { background-position: -1000px 0; }
@@ -1189,8 +1191,8 @@ function renderMap(list, body) {
     const mapEl = el('mapPanel');
     if (!mapEl) return;
     // Destroy old map if exists
-    if (state.mapLayer) { state.mapLayer.remove(); state.mapLayer = null; }
-    const map = L.map(mapEl, { scrollWheelZoom: false }).setView([20, 30], 2);
+    if (state.mapLayer) { try { state.mapLayer.remove(); } catch(e){} state.mapLayer = null; }
+    const map = L.map(mapEl, { scrollWheelZoom: true }).setView([20, 30], 2);
     state.mapLayer = map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap',
@@ -2050,6 +2052,7 @@ function renderCards(reset=false) {
 // DETAIL MODAL
 // ============================================================
 function openDetailModal(x) {
+  if (state.mapLayer) { try { state.mapLayer.remove(); } catch(e){} state.mapLayer = null; }
   state.openItem = x;
   state.savedScrollY = window.scrollY;
   const title = x.name_ru || x.ima_name || '—';
@@ -2089,8 +2092,8 @@ function openDetailModal(x) {
 
   if (x.id) renderPhotoSection(x, el('mPhotoSection'));
 
-  // Mindat locality + coordinates section (always visible)
-  renderLocalitySection(x, el('mLocalitySection'));
+  // Геопривязка управляется через Python-скрипт
+  el('mLocalitySection').innerHTML = '';
 
   // Mind map button — always visible
   renderMindmapButton(x, el('mMindmapSection'));
@@ -2098,7 +2101,6 @@ function openDetailModal(x) {
   // Type locality toggle + draft toggle — only when unlocked
   if (x.id && state.costUnlocked) {
     renderTypeLocalityToggle(x);
-    renderDraftToggle(x);
   }
 }
 
@@ -2573,6 +2575,9 @@ async function init() {
     }
   });
 
+  // Авто-черновик: образцы без цены скрыты по умолчанию (только локально)
+  state.data.forEach(x => { if (x.cost == null || isNaN(x.cost)) x.is_draft = true; });
+
   const cc = new Map();
   state.data.forEach(x=>{ const c=x.country||''; if(c) cc.set(c,(cc.get(c)||0)+1); });
   state.countryCounts = cc;
@@ -2701,8 +2706,15 @@ async function init() {
         const dy = y - lastY;
         const header = document.querySelector('.site-header');
         if (header) {
-          if (dy > 8 && y > 80) header.classList.add('header-hidden');
-          else if (dy < -8) header.classList.remove('header-hidden');
+          if (dy > 8 && y > 80) {
+            header.classList.add('header-hidden');
+            const ctrl = document.querySelector('.control-row');
+            if (ctrl) ctrl.style.top = '0px';
+          } else if (dy < -8) {
+            header.classList.remove('header-hidden');
+            const ctrl = document.querySelector('.control-row');
+            if (ctrl) ctrl.style.top = (header.offsetHeight || 57) + 'px';
+          }
         }
         lastY = y;
         ticking = false;
