@@ -24,10 +24,13 @@ const EXT = {
 window.EXT = EXT;
 
 // ---------- нормализация имён (зеркало серверного пайплайна) ----------
+// ВАЖНО: суффикс вида "-(Ce)" НЕ обрубается, а приводится к единому формату "-ce".
+// Обрубание ломало виды, где суффикс — часть самого названия вида (Agardite-(Ce)/(Y)/(La)/(Nd) —
+// это четыре РАЗНЫХ вида, а не варианты одного). Раньше все они схлопывались в одну запись.
 function baseName(n){
   n = (n||'').toString().trim().toLowerCase();
   try { n = n.normalize('NFD').replace(/[\u0300-\u036f]/g,''); } catch(e){}
-  n = n.replace(/-\([a-z0-9+]+\)$/,'');
+  n = n.replace(/-\(([a-z0-9+]+)\)$/, '-$1');
   return n.replace('baryte','barite');
 }
 const MANUAL_ABBR = {'Nph':'nepheline','Kln':'kaolinite','Heu':'heulandite','Cpy':'chalcopyrite',
@@ -56,23 +59,14 @@ function specimenByBase(b){
 }
 
 // ---------- загрузка справочника ----------
-async function fetchRefChunk(names, cols){
-  const out = [];
-  for (let i=0; i<names.length; i+=90){
-    const chunk = names.slice(i,i+90).map(n=>'"'+n.replace(/"/g,'')+'"').join(',');
-    const url = `${SB_URL}/rest/v1/species_reference?name=in.(${encodeURIComponent(chunk)})&select=${cols}`;
-    try {
-      const res = await fetch(url, { headers: SB_HEADERS });
-      if (res.ok) out.push(...await res.json());
-    } catch(e){ console.warn('ref chunk failed', e); }
-  }
-  return out;
-}
-async function fetchCanonical(){
-  try {
-    const res = await fetch(`${SB_URL}/rest/v1/species_reference?canonical_class=neq.&select=name,name_display,formula_html,canonical_class,assoc_count,struct_group`, { headers: SB_HEADERS });
-    return res.ok ? await res.json() : [];
-  } catch(e){ return []; }
+// Справочник грузится ОДНИМ статическим файлом species_reference.json (лежит рядом с index.html
+// в репозитории на GitHub), а не таблицей Supabase — так надёжнее: не зависит от того, корректно ли
+// прошёл импорт CSV в Supabase (jsonb-колонки при импорте иногда ведут себя непредсказуемо),
+// и не требует множества сетевых запросов чанками.
+async function loadReferenceFile(){
+  const res = await fetch('species_reference.json', { cache: 'no-cache' });
+  if (!res.ok) throw new Error('species_reference.json: HTTP ' + res.status);
+  return res.json();
 }
 
 function computeOwnedSets(){
@@ -98,37 +92,16 @@ function computeOwnedSets(){
 }
 
 async function loadReference(){
-  // кэш
   try {
-    const c = JSON.parse(localStorage.getItem(EXT.CACHE_KEY) || 'null');
-    if (c && Date.now()-c.t < EXT.CACHE_TTL && Array.isArray(c.rows)) {
-      c.rows.forEach(r => EXT.ref.set(r.name, r));
-      EXT.refReady = true;
-      return;
-    }
-  } catch(e){}
-
-  const full = 'name,name_display,formula_html,elements,crystal_system,year_published,ima_symbol,struct_group,occurrence,association,assoc_parsed,etymology,cons_flags,canonical_class,assoc_count,analogs';
-  const lite = 'name,name_display,formula_html,struct_group,assoc_count,canonical_class,cons_flags';
-
-  const ownedRows = await fetchRefChunk([...EXT.owned, ...EXT.sat], full);
-  ownedRows.forEach(r => EXT.ref.set(r.name, r));
-
-  // фаза 2: имена, нужные для «Развития» и аналогов
-  const need = new Set();
-  ownedRows.forEach(r => {
-    (r.assoc_parsed||[]).forEach(n => { if (!EXT.owned.has(n) && !EXT.sat.has(n)) need.add(n); });
-    (r.analogs||[]).forEach(a => { if (!EXT.ref.has(a[0])) need.add(a[0]); });
-  });
-  const canon = await fetchCanonical();
-  canon.forEach(r => { if (!EXT.ref.has(r.name)) EXT.ref.set(r.name, r); need.delete(r.name); });
-  const extraRows = await fetchRefChunk([...need], lite);
-  extraRows.forEach(r => { if (!EXT.ref.has(r.name)) EXT.ref.set(r.name, r); });
-
-  EXT.refReady = true;
-  try {
-    localStorage.setItem(EXT.CACHE_KEY, JSON.stringify({t: Date.now(), rows: [...EXT.ref.values()]}));
-  } catch(e){ console.warn('ref cache too big for localStorage — работаем без кэша'); }
+    const data = await loadReferenceFile();   // { "имя-ключ": {name_display, formula_html, ...}, ... }
+    Object.entries(data).forEach(([name, r]) => EXT.ref.set(name, { name, ...r }));
+    EXT.refReady = true;
+    console.log('[ext] справочник загружен:', EXT.ref.size, 'видов');
+  } catch(e){
+    console.error('[ext] не удалось загрузить species_reference.json —', e.message,
+      '\nПроверьте: файл species_reference.json лежит рядом с index.html в репозитории на GitHub?');
+    EXT.refReady = false;
+  }
 }
 
 // подтянуть новые колонки minerals (их нет в выборке основного скрипта)
@@ -545,71 +518,6 @@ function renderOrder(list, body){
   };
 }
 
-// ---------- MINDMAP: рёбра парагенезиса и изоморфизма ----------
-const _renderMindmap = window.renderMindmap;
-window.renderMindmap = function(center){
-  const b0 = baseName(center.ima_name);
-  const r0 = EXT.ref.get(b0);
-  if (!EXT.refReady || !r0) return _renderMindmap(center);
-
-  const panel = el('mindmapPanel'); if (!panel) return; panel.innerHTML='';
-  const manualIds = new Set(Array.isArray(center.related_ids)?center.related_ids:[]);
-  const links=[]; const seen=new Set();
-  const push=(o,type)=>{ if(o.id!==center.id && !seen.has(o.id)){ links.push({o,type}); seen.add(o.id);} };
-  state.data.forEach(o=>{ if(manualIds.has(o.id)) push(o,'manual'); });
-  // парагенезис
-  const assocSet = new Set(r0.assoc_parsed||[]);
-  state.data.forEach(o=>{
-    const b=baseName(o.ima_name); if(!b) return;
-    const rr=EXT.ref.get(b);
-    if (assocSet.has(b) || (rr && (rr.assoc_parsed||[]).includes(b0))) push(o,'assoc');
-  });
-  // изоморфные аналоги
-  const isoSet = new Set((r0.analogs||[]).map(a=>a[0]));
-  state.data.forEach(o=>{ const b=baseName(o.ima_name); if(b && isoSet.has(b)) push(o,'iso'); });
-  // то же месторождение
-  if (center.locality) state.data.filter(o=>o.locality===center.locality).slice(0,10).forEach(o=>push(o,'locality'));
-
-  const shown = links.slice(0,16);
-  if (!shown.length) return _renderMindmap(center);
-
-  const typeColors={manual:'#c8a96e',assoc:'#4fad7f',iso:'#b86a9e',locality:'#7ba8a0'};
-  const typeLabels={manual:'ручная связь',assoc:'парагенезис (справочник)',iso:'изоморфный аналог',locality:'то же месторождение'};
-  const nodes=[{id:center.id,name:center.name_ru||'—',isCenter:true,accent:cardAccent(center.class),obj:center},
-    ...shown.map(l=>({id:l.o.id,name:l.o.name_ru||'—',isCenter:false,accent:cardAccent(l.o.class),type:l.type,obj:l.o}))];
-  const dlinks=shown.map(l=>({source:center.id,target:l.o.id,type:l.type}));
-  const w=panel.clientWidth,h=panel.clientHeight;
-  const svg=d3.select(panel).append('svg').attr('width',w).attr('height',h).style('display','block');
-  const sim=d3.forceSimulation(nodes)
-    .force('link',d3.forceLink(dlinks).id(d=>d.id).distance(115))
-    .force('charge',d3.forceManyBody().strength(-280))
-    .force('center',d3.forceCenter(w/2,h/2))
-    .force('collide',d3.forceCollide().radius(40));
-  const link=svg.append('g').selectAll('line').data(dlinks).join('line')
-    .attr('class','mindmap-link').attr('stroke',d=>typeColors[d.type]||'#c8bfaf')
-    .attr('stroke-dasharray',d=>d.type==='iso'?'4,3':null).attr('stroke-width',2);
-  const node=svg.append('g').selectAll('g').data(nodes).join('g').style('cursor','pointer')
-    .call(d3.drag()
-      .on('start',(e,d)=>{if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
-      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;})
-      .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
-  node.append('circle').attr('r',d=>d.isCenter?26:18).attr('fill',d=>d.isCenter?'#8a8070':d.accent).attr('stroke','#fff').attr('stroke-width',2);
-  node.append('text').attr('class','mindmap-node-label').attr('text-anchor','middle')
-    .attr('dy',d=>d.isCenter?40:32).text(d=>d.name.length>16?d.name.slice(0,14)+'…':d.name);
-  node.append('title').text(d=>d.isCenter?d.name:`${d.name} — ${typeLabels[d.type]||''}`);
-  node.on('click',(e,d)=>{ if(d.isCenter) return; closeMindmapModal(); closeDetailModal(); setTimeout(()=>openDetailModal(d.obj),100); });
-  sim.on('tick',()=>{
-    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
-    node.attr('transform',d=>`translate(${d.x},${d.y})`);
-  });
-  // легенда: дополнить новыми типами (один раз)
-  const legend = document.querySelector('#mindmapBody > div:last-child');
-  if (legend && !legend.querySelector('.ext-legend')) {
-    const s=document.createElement('span'); s.className='ext-legend';
-    s.innerHTML=`<span style="display:inline-block;width:18px;height:2px;background:#4fad7f;vertical-align:middle"></span> парагенезис · <span style="display:inline-block;width:18px;height:2px;background:#b86a9e;vertical-align:middle;border-top:1px dashed #b86a9e"></span> изоморфизм`;
-    legend.insertBefore(s, legend.firstChild);
-  }
-};
 
 // ---------- ФИЛЬТР ПО ХРАНЕНИЮ + СОРТИРОВКА «ТИПОВЫЕ» ----------
 function injectControls(){
